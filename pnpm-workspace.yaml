@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+
+# Single source of truth for shared dependency versions.
+# Reference from a package.json as `"vite": "catalog:"`.
+catalog:
+  "@types/node": ^26.2.0
+  typescript: ^7.0.2
+  vite: ^8.2.2
+  vitest: ^4.1.11
