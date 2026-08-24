@@ -1,13 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Logger } from './index.js';
-import {
-  createInjector,
-  createToken,
-  extendProvider,
-  provide,
-  provideValue,
-} from './index.js';
+import { createInjector, createToken, extendProvider, provide, provideValue } from './index.js';
 
 function createLogger(): Logger {
   return {
@@ -124,9 +118,7 @@ describe('debug tracing', () => {
     vi.mocked(logger.debug).mockClear();
     child.get(token);
 
-    expect(logger.debug).toHaveBeenCalledWith(
-      expect.stringContaining('ChildScoped'),
-    );
+    expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining('ChildScoped'));
   });
 
   it('lets a child opt out of inherited debug', () => {

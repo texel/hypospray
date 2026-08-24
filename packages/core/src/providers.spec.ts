@@ -70,10 +70,7 @@ describe('provideExisting', () => {
     const createValueB = () => 'B';
 
     const injector = createInjector({
-      providers: [
-        provide(createValueA),
-        provideExisting(createValueB, createValueA),
-      ],
+      providers: [provide(createValueA), provideExisting(createValueB, createValueA)],
     });
 
     expect(injector.get(createValueB)).toBe('A');
@@ -100,10 +97,7 @@ describe('provideExisting', () => {
     const alias = createToken<string>();
 
     const injector = createInjector({
-      providers: [
-        provideExisting(alias, canonical),
-        provideValue(canonical, 'overridden'),
-      ],
+      providers: [provideExisting(alias, canonical), provideValue(canonical, 'overridden')],
     });
 
     expect(injector.get(alias)).toBe('overridden');

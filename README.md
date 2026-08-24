@@ -19,14 +19,23 @@ pnpm install
 
 Run from the repo root; each also works inside an individual package.
 
-| Command | What it does |
-| --- | --- |
-| `pnpm build` | Build every package (Vite emits JS, `tsc` emits `.d.ts`) |
-| `pnpm dev` | Rebuild every package on change |
-| `pnpm test` | Run all Vitest suites once |
-| `pnpm test:watch` | Vitest in watch mode |
-| `pnpm typecheck` | Type-check every package without emitting |
-| `pnpm clean` | Remove build output |
+| Command             | What it does                                             |
+| ------------------- | -------------------------------------------------------- |
+| `pnpm build`        | Build every package (Vite emits JS, `tsc` emits `.d.ts`) |
+| `pnpm dev`          | Rebuild every package on change                          |
+| `pnpm test`         | Run all Vitest suites once                               |
+| `pnpm test:watch`   | Vitest in watch mode                                     |
+| `pnpm typecheck`    | Type-check every package without emitting                |
+| `pnpm lint`         | Lint with oxlint                                         |
+| `pnpm lint:fix`     | Apply oxlint's auto-fixes                                |
+| `pnpm format`       | Format with oxfmt                                        |
+| `pnpm format:check` | Fail if anything is unformatted                          |
+| `pnpm check`        | format:check → lint → typecheck → test                   |
+| `pnpm clean`        | Remove build output                                      |
+
+oxlint and oxfmt are single binaries that walk the whole repo, so they run
+from the root only — packages don't carry their own lint or format scripts.
+Both respect `.gitignore`.
 
 ## Adding a package
 
@@ -49,3 +58,17 @@ automatically.
 - **`nodenext` module resolution.** Relative imports carry a `.js` extension.
 - **Types come from `tsc`, not the bundler**, via each package's
   `tsconfig.build.json`.
+- **Spec-first.** `*.spec.ts` files are the contract. Until a piece is
+  implemented its stub throws `Not implemented`, so a red suite is expected.
+
+## Linting notes
+
+Two rules are switched off in [`.oxlintrc.json`](./.oxlintrc.json) for reasons
+specific to this library:
+
+- `unicorn/consistent-function-scoping` (specs only) wants test-local functions
+  hoisted to module scope. Here a function _is_ its own injection token, so
+  hoisting would make separate tests share a token and leak resolved values
+  between them.
+- `vitest/require-mock-type-parameters` wants an explicit type argument on every
+  `vi.fn()`, which TypeScript already infers from the implementation passed in.

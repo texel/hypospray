@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  createInjector,
-  createToken,
-  extendProvider,
-  provide,
-  provideValue,
-} from './index.js';
+import { createInjector, createToken, extendProvider, provide, provideValue } from './index.js';
 
 describe('hierarchical injectors', () => {
   it('resolves a parent-provided value from a child', () => {
@@ -62,10 +56,7 @@ describe('hierarchical injectors', () => {
     ['false', false],
     ['empty string', ''],
     ['null', null],
-  ] as const)('shares a parent-resolved %s rather than rebuilding it', (
-    _label,
-    value,
-  ) => {
+  ] as const)('shares a parent-resolved %s rather than rebuilding it', (_label, value) => {
     const factory = vi.fn(() => value);
     const token = createToken<typeof value>({ factory });
 

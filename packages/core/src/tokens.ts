@@ -10,10 +10,7 @@ export type FunctionSignature<T> = (...args: never[]) => T;
  * the cases those can't: a dependency with no sensible default, or one whose
  * type has no runtime representation.
  */
-export type ProviderToken<T> =
-  | InjectionToken<T>
-  | ClassConstructor<T>
-  | FunctionSignature<T>;
+export type ProviderToken<T> = InjectionToken<T> | ClassConstructor<T> | FunctionSignature<T>;
 
 export interface TokenOptions<T> {
   /**

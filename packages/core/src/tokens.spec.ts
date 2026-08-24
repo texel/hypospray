@@ -24,9 +24,9 @@ describe('createToken', () => {
     expect(anonymous.name).toBeUndefined();
   });
 
-  // Regression: the name replaces the old positional `id`, which read like an
+  // The name replaces the old positional `id`, which read like an
   // identity but never participated in lookup.
-  it('identifies tokens by reference, never by name', () => {
+  it('identifies tokens by reference, never by name', { tags: ['regression'] }, () => {
     const a = createToken({ name: 'shared', factory: () => 'a' });
     const b = createToken({ name: 'shared', factory: () => 'b' });
 

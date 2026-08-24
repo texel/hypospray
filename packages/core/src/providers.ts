@@ -32,14 +32,9 @@ export interface ExtendDeclaration<T> {
 /**
  * Associates a token with the provider that satisfies it.
  */
-export type ProviderDeclaration<T> =
-  | ReplaceDeclaration<T>
-  | ExtendDeclaration<T>;
+export type ProviderDeclaration<T> = ReplaceDeclaration<T> | ExtendDeclaration<T>;
 
-export type ProviderArray = ReadonlyArray<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ProviderToken<any> | ProviderDeclaration<any>
->;
+export type ProviderArray = ReadonlyArray<ProviderToken<any> | ProviderDeclaration<any>>;
 
 export type ProvideOptions<T> =
   | { factory: Provider<T>; value?: never; existing?: never }
@@ -63,10 +58,7 @@ export function provide<T>(
  * Falsy values — `false`, `0`, `''`, `null`, `undefined` — are provided
  * values like any other.
  */
-export function provideValue<T>(
-  _token: ProviderToken<T>,
-  _value: T,
-): ProviderDeclaration<T> {
+export function provideValue<T>(_token: ProviderToken<T>, _value: T): ProviderDeclaration<T> {
   notImplemented('provideValue');
 }
 

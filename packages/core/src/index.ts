@@ -1,16 +1,7 @@
-export {
-  CircularDependencyError,
-  NoInjectorError,
-  NoProviderError,
-} from './errors.js';
+export { CircularDependencyError, NoInjectorError, NoProviderError } from './errors.js';
 
 export { InjectionToken, createToken } from './tokens.js';
-export type {
-  ClassConstructor,
-  FunctionSignature,
-  ProviderToken,
-  TokenOptions,
-} from './tokens.js';
+export type { ClassConstructor, FunctionSignature, ProviderToken, TokenOptions } from './tokens.js';
 
 export {
   extendProvider,
@@ -30,16 +21,6 @@ export type {
 } from './providers.js';
 
 export { Injector, createInjector } from './injector.js';
-export type {
-  ChildInjectorOptions,
-  InjectOptions,
-  InjectorOptions,
-  Logger,
-} from './injector.js';
+export type { ChildInjectorOptions, InjectOptions, InjectorOptions, Logger } from './injector.js';
 
-export {
-  CURRENT_INJECTOR,
-  getCurrentInjector,
-  inject,
-  setCurrentInjector,
-} from './inject.js';
+export { CURRENT_INJECTOR, getCurrentInjector, inject, setCurrentInjector } from './inject.js';

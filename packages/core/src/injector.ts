@@ -1,4 +1,4 @@
-import type { ProviderArray } from './providers.js';
+import type { Provider, ProviderArray } from './providers.js';
 import type { ProviderToken } from './tokens.js';
 
 function notImplemented(what: string): never {
@@ -23,8 +23,10 @@ export interface InjectorOptions {
 export type ChildInjectorOptions = Omit<InjectorOptions, 'parent'>;
 
 export class Injector {
-  constructor(_options?: InjectorOptions) {
-    // resolution state lives here once implemented
+  protected readonly options: InjectorOptions;
+
+  constructor(options: InjectorOptions = {}) {
+    this.options = options;
   }
 
   /**
@@ -44,15 +46,9 @@ export class Injector {
     notImplemented('Injector.invoke');
   }
 
-  get<T>(
-    token: ProviderToken<T>,
-    options: InjectOptions & { optional: true },
-  ): T | undefined;
+  get<T>(token: ProviderToken<T>, options: InjectOptions & { optional: true }): T | undefined;
   get<T>(token: ProviderToken<T>, options?: InjectOptions): T;
-  get<T>(
-    _token: ProviderToken<T>,
-    _options?: InjectOptions,
-  ): T | undefined {
+  get<T>(_token: ProviderToken<T>, _options?: InjectOptions): T | undefined {
     notImplemented('Injector.get');
   }
 

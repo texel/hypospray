@@ -34,10 +34,7 @@ describe('interleaved resolution', () => {
       providers: [provideValue(RequestId, 'b')],
     });
 
-    const [a, b] = await Promise.all([
-      requestA.invoke(handler),
-      requestB.invoke(handler),
-    ]);
+    const [a, b] = await Promise.all([requestA.invoke(handler), requestB.invoke(handler)]);
 
     expect(a).toEqual({ before: 'a', after: 'a' });
     expect(b).toEqual({ before: 'b', after: 'b' });

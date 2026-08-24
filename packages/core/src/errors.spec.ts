@@ -64,9 +64,7 @@ describe('CircularDependencyError', () => {
       factory: (dep = inject(circular)) => dep,
     });
 
-    expect(() => createInjector().get(circular)).toThrow(
-      CircularDependencyError,
-    );
+    expect(() => createInjector().get(circular)).toThrow(CircularDependencyError);
   });
 
   it('detects a cycle between two tokens', () => {
