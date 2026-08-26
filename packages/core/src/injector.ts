@@ -1,4 +1,10 @@
-import type { Provider, ProviderArray } from './providers.js';
+import {
+  isExtendDeclaration,
+  toProvider,
+  type Provider,
+  type ProviderArray,
+  type ProviderDeclaration,
+} from './providers.js';
 import type { ProviderToken } from './tokens.js';
 
 function notImplemented(what: string): never {
@@ -25,8 +31,28 @@ export type ChildInjectorOptions = Omit<InjectorOptions, 'parent'>;
 export class Injector {
   protected readonly options: InjectorOptions;
 
+  private providers = new Map<ProviderToken<unknown>, Provider<unknown>>();
+
+  private values = new Map<ProviderToken<unknown>, unknown>();
+
+  private parent: Injector | null = null;
+
+  private logger: Logger;
+
+  private debug = false;
+
   constructor(options: InjectorOptions = {}) {
     this.options = options;
+
+    this.parent = options?.parent || null;
+
+    this.logger = options?.logger || console;
+
+    this.debug = options?.debug ?? false;
+
+    if (options?.providers) {
+      this.addProviders(...options.providers);
+    }
   }
 
   /**
@@ -54,6 +80,29 @@ export class Injector {
 
   createChild(_options?: ChildInjectorOptions): Injector {
     notImplemented('Injector.createChild');
+  }
+
+  private getOrCreateProvider<T>(token: ProviderToken<T>): Provider<unknown> {
+    const provider = this.providers.get(token);
+    if (provider) {
+      return provider;
+    }
+
+    const newProvider = toProvider(token);
+    this.providers.set(token, newProvider);
+    return newProvider;
+  }
+
+  private addProviderFromDeclaration<T>(declaration: ProviderDeclaration<T>) {
+    const { token } = declaration;
+
+    if (isExtendDeclaration(declaration)) {
+      const { extend } = declaration;
+      const previous = this.getOrCreateProvider(token) as Provider<T>;
+      this.providers.set(token, () => extend(previous()));
+    } else {
+      this.providers.set(token, declaration.provider as Provider<unknown>);
+    }
   }
 }
 

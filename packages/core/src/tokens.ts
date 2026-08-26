@@ -1,6 +1,4 @@
-export type ClassConstructor<T> = new (...args: never[]) => T;
-
-export type FunctionSignature<T> = (...args: never[]) => T;
+import type { ClassConstructor, FunctionSignature } from './helpers.js';
 
 /**
  * Anything that can identify a dependency.
@@ -44,6 +42,7 @@ export class InjectionToken<T> {
     this.factory = options?.factory;
   }
 
+  // FIXME: try to make a nicer fallback if we're missing a name
   toString(): string {
     return `InjectionToken(${this.name ?? 'anonymous'})`;
   }

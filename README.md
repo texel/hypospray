@@ -61,6 +61,15 @@ automatically.
 - **Spec-first.** `*.spec.ts` files are the contract. Until a piece is
   implemented its stub throws `Not implemented`, so a red suite is expected.
 
+## Editor setup
+
+Install the [Oxc extension](https://github.com/oxc-project/oxc-zed) for Zed
+(`zed: extensions` → search "Oxc"). It supplies the `oxlint` and `oxfmt`
+language servers that [`.zed/settings.json`](./.zed/settings.json) wires up, so
+lint diagnostics appear inline and saves format with oxfmt instead of Zed's
+bundled prettier. The lint server is pinned to the repo's own
+`node_modules/.bin/oxlint`, so the editor and `pnpm lint` always agree.
+
 ## Linting notes
 
 Two rules are switched off in [`.oxlintrc.json`](./.oxlintrc.json) for reasons

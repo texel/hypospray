@@ -127,28 +127,32 @@ describe('interleaved resolution', () => {
 });
 
 describe('resolution state isolation', () => {
-  // Regression: the cycle-detection stack was a module-level array shared by
+  // the cycle-detection stack was a module-level array shared by
   // every injector, and was hand-balanced with pop/push around parent lookups.
-  it('does not leak cycle-detection state after a failed resolution', () => {
-    const boom = createToken({
-      name: 'Boom',
-      factory: (): string => {
-        throw new Error('boom');
-      },
-    });
+  it(
+    'does not leak cycle-detection state after a failed resolution',
+    { tags: ['regression'] },
+    () => {
+      const boom = createToken({
+        name: 'Boom',
+        factory: (): string => {
+          throw new Error('boom');
+        },
+      });
 
-    expect(() => createInjector().get(boom)).toThrow('boom');
+      expect(() => createInjector().get(boom)).toThrow('boom');
 
-    let thrown: unknown;
-    try {
-      createInjector().get(boom);
-    } catch (error) {
-      thrown = error;
-    }
+      let thrown: unknown;
+      try {
+        createInjector().get(boom);
+      } catch (error) {
+        thrown = error;
+      }
 
-    expect(thrown).toBeInstanceOf(Error);
-    expect(thrown).not.toBeInstanceOf(CircularDependencyError);
-  });
+      expect(thrown).toBeInstanceOf(Error);
+      expect(thrown).not.toBeInstanceOf(CircularDependencyError);
+    },
+  );
 
   it('does not report a false cycle when one injector resolves through another', () => {
     const Inner = createToken({ name: 'Inner', factory: () => 'inner value' });

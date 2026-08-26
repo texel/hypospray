@@ -47,9 +47,9 @@ describe('resolution', () => {
     expect(factory).toHaveBeenCalledTimes(1);
   });
 
-  // Regression: memoisation used to be keyed on truthiness, so a falsy value
+  // memoisation used to be keyed on truthiness, so a falsy value
   // re-ran its factory on every resolution.
-  it('memoises falsy values', () => {
+  it('memoises falsy values', { tags: ['regression'] }, () => {
     const factory = vi.fn(() => 0);
     const token = createToken({ factory });
     const injector = createInjector();
@@ -78,17 +78,21 @@ describe('resolution', () => {
     expect(factory).not.toHaveBeenCalled();
   });
 
-  // Regression: isClass tested `/class(\s|{)/` against the whole function
+  // isClass tested `/class(\s|{)/` against the whole function
   // source, so any function mentioning "class " was called with `new`.
-  it('does not mistake a function mentioning "class" for a constructor', () => {
-    const injector = createInjector();
-    const makeThing = () => {
-      const label = 'class name';
-      return { label };
-    };
+  it(
+    'does not mistake a function mentioning "class" for a constructor',
+    { tags: ['regression'] },
+    () => {
+      const injector = createInjector();
+      const makeThing = () => {
+        const label = 'class name';
+        return { label };
+      };
 
-    expect(injector.get(makeThing)).toEqual({ label: 'class name' });
-  });
+      expect(injector.get(makeThing)).toEqual({ label: 'class name' });
+    },
+  );
 });
 
 describe('declaring dependencies', () => {
@@ -136,15 +140,19 @@ describe('declaring dependencies', () => {
     expect(injector.get(token, { optional: true })).toBe('present');
   });
 
-  // Regression: an optional miss was memoised as `undefined`, so a later
+  // an optional miss was memoised as `undefined`, so a later
   // required resolution returned undefined instead of throwing.
-  it('does not let an optional miss satisfy a later required resolution', () => {
-    const token = createToken<string>({ name: 'Missing' });
-    const injector = createInjector();
+  it(
+    'does not let an optional miss satisfy a later required resolution',
+    { tags: ['regression'] },
+    () => {
+      const token = createToken<string>({ name: 'Missing' });
+      const injector = createInjector();
 
-    expect(injector.get(token, { optional: true })).toBeUndefined();
-    expect(() => injector.get(token)).toThrow(NoProviderError);
-  });
+      expect(injector.get(token, { optional: true })).toBeUndefined();
+      expect(() => injector.get(token)).toThrow(NoProviderError);
+    },
+  );
 });
 
 describe('ambient injector', () => {
@@ -187,9 +195,9 @@ describe('ambient injector', () => {
     });
   });
 
-  // Regression: invoke() set the ambient injector, called fn, then restored it
+  // invoke() set the ambient injector, called fn, then restored it
   // with no try/finally, so a throwing factory leaked it process-wide.
-  it('restores the ambient injector when a factory throws', () => {
+  it('restores the ambient injector when a factory throws', { tags: ['regression'] }, () => {
     setCurrentInjector(null);
     const boom = createToken({
       factory: () => {

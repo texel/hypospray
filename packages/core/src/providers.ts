@@ -1,13 +1,12 @@
-import type { ProviderToken } from './tokens.js';
-
-function notImplemented(what: string): never {
-  throw new Error(`Not implemented: ${what}`);
-}
+import { debugToken } from './debug.js';
+import { NoProviderError } from './errors.js';
+import { isClass } from './helpers.js';
+import { inject } from './inject.js';
+import { InjectionToken, type ProviderToken } from './tokens.js';
 
 /**
  * Produces a dependency. Providers take no arguments — the "extend" case has
- * its own type so that the accumulator parameter doesn't leak into every
- * provider signature.
+ * its own declaration shape so the accumulator never leaks into this signature.
  */
 export type Provider<T> = () => T;
 
@@ -20,22 +19,29 @@ export type ExtendFn<T> = (previous: T) => T;
 export interface ReplaceDeclaration<T> {
   readonly token: ProviderToken<T>;
   readonly provider: Provider<T>;
-  readonly extend?: false;
 }
 
 export interface ExtendDeclaration<T> {
   readonly token: ProviderToken<T>;
-  readonly provider: ExtendFn<T>;
-  readonly extend: true;
+  readonly extend: ExtendFn<T>;
 }
 
 /**
  * Associates a token with the provider that satisfies it.
+ *
+ * The two arms carry their function in differently-named properties rather
+ * than sharing `provider` with a boolean flag. A zero-argument `Provider<T>`
+ * is assignable to a one-argument `ExtendFn<T>`, so a shared property could
+ * never tell them apart — `'extend' in declaration` can.
  */
 export type ProviderDeclaration<T> = ReplaceDeclaration<T> | ExtendDeclaration<T>;
 
 export type ProviderArray = ReadonlyArray<ProviderToken<any> | ProviderDeclaration<any>>;
 
+/**
+ * Exactly one of these may be given. The `never` members stop an object
+ * literal from satisfying the union by mixing two of them.
+ */
 export type ProvideOptions<T> =
   | { factory: Provider<T>; value?: never; existing?: never }
   | { value: T; factory?: never; existing?: never }
@@ -44,12 +50,50 @@ export type ProvideOptions<T> =
 /**
  * Declares how a token should be satisfied. With no options, the token
  * provides itself.
+ *
+ * `ProviderToken<T>` is covariant, so `existing` and `value` already accept
+ * any subtype of `T` without a second type parameter.
  */
 export function provide<T>(
-  _token: ProviderToken<T>,
-  _options?: ProvideOptions<T>,
-): ProviderDeclaration<T> {
-  notImplemented('provide');
+  token: ProviderToken<T>,
+  options?: ProvideOptions<T>,
+): ReplaceDeclaration<T> {
+  return { token, provider: toValueProvider(token, options) };
+}
+
+function toValueProvider<T>(
+  token: ProviderToken<T>,
+  options: ProvideOptions<T> | undefined,
+): Provider<T> {
+  if (options) {
+    // The union's `never` members make each branch unreachable to narrowing,
+    // so widen once here rather than casting at every access.
+    const given = options as {
+      factory?: Provider<T>;
+      value?: T;
+      existing?: ProviderToken<T>;
+    };
+
+    if (given.factory) {
+      return given.factory;
+    }
+
+    // Presence, not truthiness: `false`, `0`, `''`, `null` and `undefined` are
+    // provided values like any other.
+    if ('value' in given) {
+      const { value } = given;
+      return () => value as T;
+    }
+
+    if (given.existing) {
+      const { existing } = given;
+      // Resolved through the injector so the alias yields the *same* instance
+      // rather than re-running the target's factory.
+      return () => inject(existing);
+    }
+  }
+
+  return toProvider(token) as Provider<T>;
 }
 
 /**
@@ -58,8 +102,8 @@ export function provide<T>(
  * Falsy values — `false`, `0`, `''`, `null`, `undefined` — are provided
  * values like any other.
  */
-export function provideValue<T>(_token: ProviderToken<T>, _value: T): ProviderDeclaration<T> {
-  notImplemented('provideValue');
+export function provideValue<T>(token: ProviderToken<T>, value: T): ReplaceDeclaration<T> {
+  return provide(token, { value });
 }
 
 /**
@@ -67,21 +111,21 @@ export function provideValue<T>(_token: ProviderToken<T>, _value: T): ProviderDe
  * result is memoised for the lifetime of the injector that owns it.
  */
 export function provideFactory<T>(
-  _token: ProviderToken<T>,
-  _factory: Provider<T>,
-): ProviderDeclaration<T> {
-  notImplemented('provideFactory');
+  token: ProviderToken<T>,
+  factory: Provider<T>,
+): ReplaceDeclaration<T> {
+  return provide(token, { factory });
 }
 
 /**
  * Alias one token to another. Resolving either yields the *same* instance —
  * the aliased token is resolved through the injector, not re-constructed.
  */
-export function provideExisting<T, U extends T>(
-  _token: ProviderToken<T>,
-  _existing: ProviderToken<U>,
-): ProviderDeclaration<T> {
-  notImplemented('provideExisting');
+export function provideExisting<T>(
+  token: ProviderToken<T>,
+  existing: ProviderToken<T>,
+): ReplaceDeclaration<T> {
+  return provide(token, { existing });
 }
 
 /**
@@ -99,8 +143,40 @@ export function provideExisting<T, U extends T>(
  * ```
  */
 export function extendProvider<T>(
-  _token: ProviderToken<T>,
-  _extendFn: ExtendFn<T>,
-): ProviderDeclaration<T> {
-  notImplemented('extendProvider');
+  token: ProviderToken<T>,
+  extend: ExtendFn<T>,
+): ExtendDeclaration<T> {
+  return { token, extend };
+}
+
+/**
+ * Synthesises a provider for a token that has to satisfy itself: an
+ * {@link InjectionToken} with a factory, a class, or a plain function.
+ */
+export function toProvider(t: unknown, logger = console): Provider<unknown> {
+  if (t instanceof InjectionToken && t.factory) {
+    return t.factory;
+  }
+
+  if (isClass(t)) {
+    return () => new t();
+  }
+
+  if (typeof t === 'function') {
+    return t as Provider<unknown>;
+  }
+
+  throw new NoProviderError(
+    `Unsupported type, unable to create a provider: ${debugToken(t as ProviderToken<unknown>)}`,
+  );
+}
+
+export function isProviderDeclaration<T>(t: unknown): t is ProviderDeclaration<T> {
+  return typeof t === 'object' && t !== null && 'token' in t && ('provider' in t || 'extend' in t);
+}
+
+export function isExtendDeclaration<T>(
+  declaration: ProviderDeclaration<T>,
+): declaration is ExtendDeclaration<T> {
+  return 'extend' in declaration;
 }

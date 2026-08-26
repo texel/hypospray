@@ -20,14 +20,14 @@ describe('provideValue', () => {
     expect(injector.get(token)).toBe(value);
   });
 
-  // Regression: provide() branched on `if (options.value)`, so every falsy
+  // provide() branched on `if (options.value)`, so every falsy
   // value fell through and the token silently provided itself instead.
   it.each([
     ['false', false],
     ['zero', 0],
     ['empty string', ''],
     ['null', null],
-  ] as const)('provides %s', (_label, value) => {
+  ] as const)('provides %s', { tags: ['regression'] }, (_label, value) => {
     const token = createToken<typeof value>({
       factory: () => 'fallback' as never,
     });
@@ -76,9 +76,9 @@ describe('provideExisting', () => {
     expect(injector.get(createValueB)).toBe('A');
   });
 
-  // Regression: the alias re-invoked the target's factory instead of resolving
+  // the alias re-invoked the target's factory instead of resolving
   // it through the injector, so aliasing a class produced a second instance.
-  it('yields the same instance as the aliased token', () => {
+  it('yields the same instance as the aliased token', { tags: ['regression'] }, () => {
     class Thing {
       id = Math.random();
     }

@@ -48,9 +48,9 @@ describe('missing-argument warnings', () => {
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
-  // Regression: the arity check ran against every resolved provider, so the
+  // the arity check ran against every resolved provider, so the
   // (previous) => next shape extendProvider is built around warned on itself.
-  it('stays quiet for an extendProvider accumulator', () => {
+  it('stays quiet for an extendProvider accumulator', { tags: ['regression'] }, () => {
     const getWidgets = (): string[] => [];
 
     const injector = createInjector({ logger });
@@ -60,9 +60,9 @@ describe('missing-argument warnings', () => {
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
-  // Regression: a user-supplied factory's arity is its own business — only
+  // a user-supplied factory's arity is its own business — only
   // providers hypospray synthesises can be missing injected arguments.
-  it('stays quiet for a user-supplied factory', () => {
+  it('stays quiet for a user-supplied factory', { tags: ['regression'] }, () => {
     const token = createToken<string>();
 
     const injector = createInjector({
@@ -74,18 +74,22 @@ describe('missing-argument warnings', () => {
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
-  // Regression: toProvider() defaulted its logger parameter to the global
+  // toProvider() defaulted its logger parameter to the global
   // console, ignoring the injector's configured logger entirely.
-  it('routes warnings to the injector logger, not the global console', () => {
-    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const needsArgs = (dep: string) => ({ dep });
+  it(
+    'routes warnings to the injector logger, not the global console',
+    { tags: ['regression'] },
+    () => {
+      const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const needsArgs = (dep: string) => ({ dep });
 
-    createInjector({ logger }).get(needsArgs as never);
+      createInjector({ logger }).get(needsArgs as never);
 
-    expect(logger.warn).toHaveBeenCalled();
-    expect(consoleWarn).not.toHaveBeenCalled();
-    consoleWarn.mockRestore();
-  });
+      expect(logger.warn).toHaveBeenCalled();
+      expect(consoleWarn).not.toHaveBeenCalled();
+      consoleWarn.mockRestore();
+    },
+  );
 });
 
 describe('debug tracing', () => {
@@ -105,9 +109,9 @@ describe('debug tracing', () => {
     expect(logger.debug).not.toHaveBeenCalled();
   });
 
-  // Regression: createChild() forwarded only `parent` and `providers`, so
+  // createChild() forwarded only `parent` and `providers`, so
   // tracing silently stopped below the root injector.
-  it('inherits debug and logger in child injectors', () => {
+  it('inherits debug and logger in child injectors', { tags: ['regression'] }, () => {
     const token = createToken({ name: 'ChildScoped', factory: () => 'value' });
 
     const parent = createInjector({ debug: true, logger });

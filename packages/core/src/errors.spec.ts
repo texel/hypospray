@@ -19,9 +19,9 @@ describe('NoProviderError', () => {
     expect(() => createInjector().get(token)).toThrow(NoProviderError);
   });
 
-  // Regression: this path was `it.todo` and interpolated the raw token, so the
+  // this path was `it.todo` and interpolated the raw token, so the
   // one error most likely to be seen read "No provider found for [object Object]".
-  it('names the token it could not resolve', () => {
+  it('names the token it could not resolve', { tags: ['regression'] }, () => {
     const token = createToken<string>({ name: 'ApiUrl' });
 
     expect(() => createInjector().get(token)).toThrow(/ApiUrl/);

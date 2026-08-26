@@ -48,7 +48,7 @@ describe('hierarchical injectors', () => {
     expect(makeService).toHaveBeenCalledTimes(1);
   });
 
-  // Regression: the parent lookup checked `if (value)`, so a parent that
+  // the parent lookup checked `if (value)`, so a parent that
   // legitimately resolved a falsy value looked like a miss and the child built
   // its own copy.
   it.each([
@@ -56,17 +56,21 @@ describe('hierarchical injectors', () => {
     ['false', false],
     ['empty string', ''],
     ['null', null],
-  ] as const)('shares a parent-resolved %s rather than rebuilding it', (_label, value) => {
-    const factory = vi.fn(() => value);
-    const token = createToken<typeof value>({ factory });
+  ] as const)(
+    'shares a parent-resolved %s rather than rebuilding it',
+    { tags: ['regression'] },
+    (_label, value) => {
+      const factory = vi.fn(() => value);
+      const token = createToken<typeof value>({ factory });
 
-    const parent = createInjector({ providers: [provide(token, { factory })] });
-    const child = parent.createChild();
+      const parent = createInjector({ providers: [provide(token, { factory })] });
+      const child = parent.createChild();
 
-    expect(child.get(token)).toBe(value);
-    expect(parent.get(token)).toBe(value);
-    expect(factory).toHaveBeenCalledTimes(1);
-  });
+      expect(child.get(token)).toBe(value);
+      expect(parent.get(token)).toBe(value);
+      expect(factory).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('resolves implicit tokens once, at the root', () => {
     const makeService = vi.fn(() => ({}));
@@ -80,10 +84,10 @@ describe('hierarchical injectors', () => {
   });
 
   describe('extendProvider across injectors', () => {
-    // Regression: getOrCreateProvider only consulted its own injector, so
+    // getOrCreateProvider only consulted its own injector, so
     // extending in a child silently discarded the parent's contributions —
     // exactly the accumulation case extendProvider exists for.
-    it('builds on the value contributed by the parent', () => {
+    it('builds on the value contributed by the parent', { tags: ['regression'] }, () => {
       const getWidgets = (): string[] => [];
 
       const parent = createInjector();

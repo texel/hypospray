@@ -1,7 +1,8 @@
 export { CircularDependencyError, NoInjectorError, NoProviderError } from './errors.js';
 
 export { InjectionToken, createToken } from './tokens.js';
-export type { ClassConstructor, FunctionSignature, ProviderToken, TokenOptions } from './tokens.js';
+export type { ClassConstructor, FunctionSignature } from './helpers.js';
+export type { ProviderToken, TokenOptions } from './tokens.js';
 
 export {
   extendProvider,
