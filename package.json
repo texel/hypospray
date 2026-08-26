@@ -12,6 +12,7 @@
     "format:check": "oxfmt --check",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:regression": "vitest run --tagsFilter regression",
     "typecheck": "pnpm -r run typecheck",
     "clean": "pnpm -r exec rm -rf dist *.tsbuildinfo",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test"
