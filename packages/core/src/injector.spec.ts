@@ -15,67 +15,66 @@ import {
 
 describe('resolution', () => {
   it('resolves a plain function', () => {
-    const injector = createInjector();
-    const fn = () => ({ value: 42 });
+    const createConfig = () => ({ retries: 3 });
 
-    expect(injector.get(fn)).toEqual({ value: 42 });
+    expect(createInjector().get(createConfig)).toEqual({ retries: 3 });
   });
 
   it('resolves a class', () => {
-    class MyClass {
-      value = 42;
+    class HttpClient {
+      timeout = 5000;
     }
 
-    const injector = createInjector();
-
-    expect(injector.get(MyClass)).toBeInstanceOf(MyClass);
+    expect(createInjector().get(HttpClient)).toBeInstanceOf(HttpClient);
   });
 
+  // An InjectionToken is the escape hatch for the cases a function or class
+  // cannot cover: a bare config value, or a type with no runtime identity.
   it('resolves a token via its factory', () => {
-    const injector = createInjector();
-    const token = createToken({ factory: () => ({ value: 42 }) });
+    const ApiUrl = createToken({ name: 'ApiUrl', factory: () => 'https://example.com' });
 
-    expect(injector.get(token)).toEqual({ value: 42 });
+    expect(createInjector().get(ApiUrl)).toBe('https://example.com');
   });
 
   it('memoises resolved values', () => {
-    const factory = vi.fn(() => ({ value: 42 }));
-    const token = createToken({ factory });
+    const connectToDatabase = vi.fn(() => ({ id: 1 }));
     const injector = createInjector();
 
-    expect(injector.get(token)).toBe(injector.get(token));
-    expect(factory).toHaveBeenCalledTimes(1);
+    expect(injector.get(connectToDatabase)).toBe(injector.get(connectToDatabase));
+    expect(connectToDatabase).toHaveBeenCalledTimes(1);
   });
 
   // memoisation used to be keyed on truthiness, so a falsy value
   // re-ran its factory on every resolution.
   it('memoises falsy values', { tags: ['regression'] }, () => {
-    const factory = vi.fn(() => 0);
-    const token = createToken({ factory });
+    const getRetryCount = vi.fn(() => 0);
     const injector = createInjector();
 
-    expect(injector.get(token)).toBe(0);
-    expect(injector.get(token)).toBe(0);
-    expect(factory).toHaveBeenCalledTimes(1);
+    expect(injector.get(getRetryCount)).toBe(0);
+    expect(injector.get(getRetryCount)).toBe(0);
+    expect(getRetryCount).toHaveBeenCalledTimes(1);
   });
 
-  it('lets a registered provider override a token factory', () => {
-    const token = createToken({ factory: () => ({ value: 42 }) });
+  it('lets a registered provider stand in for a class', () => {
+    class Clock {
+      now(): number {
+        return Date.now();
+      }
+    }
 
     const injector = createInjector({
-      providers: [provide(token, { factory: () => ({ value: 43 }) })],
+      providers: [provide(Clock, { factory: () => ({ now: () => 1_700_000_000 }) })],
     });
 
-    expect(injector.get(token)).toEqual({ value: 43 });
+    expect(injector.get(Clock).now()).toBe(1_700_000_000);
   });
 
-  it('defers factory execution until first resolution', () => {
-    const factory = vi.fn(() => 'value');
-    const token = createToken<string>();
+  it('defers construction until first resolution', () => {
+    const connectToDatabase = vi.fn(() => ({ query: () => [] }));
 
-    createInjector({ providers: [provide(token, { factory })] });
+    createInjector({ providers: [connectToDatabase] });
 
-    expect(factory).not.toHaveBeenCalled();
+    expect(connectToDatabase).not.toHaveBeenCalled();
   });
 
   // isClass tested `/class(\s|{)/` against the whole function
@@ -97,47 +96,74 @@ describe('resolution', () => {
 
 describe('declaring dependencies', () => {
   it('resolves function dependencies through default parameters', () => {
-    const dep = () => ({ value: 42 });
-    const dependent = (injected = inject(dep)) => ({
-      value: 43,
-      depValue: injected,
+    const createLogger = () => ({ level: 'info' });
+    const createRequestLogger = (logger = inject(createLogger)) => ({
+      prefix: '[request]',
+      logger,
     });
 
-    const injector = createInjector();
-
-    expect(injector.get(dependent)).toEqual({
-      value: 43,
-      depValue: { value: 42 },
+    expect(createInjector().get(createRequestLogger)).toEqual({
+      prefix: '[request]',
+      logger: { level: 'info' },
     });
   });
 
-  it('resolves class dependencies through default parameters', () => {
-    class MyClass {
-      value = 42;
+  it('resolves class dependencies through constructor default parameters', () => {
+    class Clock {
+      now(): number {
+        return 1234;
+      }
     }
-    const dependent = (dep = inject(MyClass)) => ({ depValue: dep.value });
 
-    const injector = createInjector();
+    class Stopwatch {
+      startedAt: number;
 
-    expect(injector.get(dependent)).toEqual({ depValue: 42 });
+      constructor(clock = inject(Clock)) {
+        this.startedAt = clock.now();
+      }
+    }
+
+    expect(createInjector().get(Stopwatch).startedAt).toBe(1234);
+  });
+
+  it('mixes classes and functions in one graph', () => {
+    class Clock {
+      now(): number {
+        return 7;
+      }
+    }
+
+    const createTimestamper =
+      (clock = inject(Clock)) =>
+      () =>
+        clock.now();
+
+    class Report {
+      stamp: number;
+
+      constructor(timestamp = inject(createTimestamper)) {
+        this.stamp = timestamp();
+      }
+    }
+
+    expect(createInjector().get(Report).stamp).toBe(7);
   });
 
   it('returns undefined for an optional dependency with no provider', () => {
-    const token = createToken<string>();
-    const dependent = (dep = inject(token, { optional: true })) => ({
-      token: dep,
-    });
+    // Only a factory-less token can genuinely be missing — a function or class
+    // always knows how to provide itself.
+    const FeatureFlags = createToken<Record<string, boolean>>({ name: 'FeatureFlags' });
+    const createDashboard = (flags = inject(FeatureFlags, { optional: true })) => ({ flags });
 
-    expect(createInjector().get(dependent).token).toBeUndefined();
+    expect(createInjector().get(createDashboard).flags).toBeUndefined();
   });
 
   it('resolves an optional dependency that is provided', () => {
-    const token = createToken<string>();
-    const injector = createInjector({
-      providers: [provideValue(token, 'present')],
-    });
+    const getTheme = () => 'system';
 
-    expect(injector.get(token, { optional: true })).toBe('present');
+    const injector = createInjector({ providers: [provideValue(getTheme, 'dark')] });
+
+    expect(injector.get(getTheme, { optional: true })).toBe('dark');
   });
 
   // an optional miss was memoised as `undefined`, so a later
@@ -146,11 +172,11 @@ describe('declaring dependencies', () => {
     'does not let an optional miss satisfy a later required resolution',
     { tags: ['regression'] },
     () => {
-      const token = createToken<string>({ name: 'Missing' });
+      const FeatureFlags = createToken<Record<string, boolean>>({ name: 'FeatureFlags' });
       const injector = createInjector();
 
-      expect(injector.get(token, { optional: true })).toBeUndefined();
-      expect(() => injector.get(token)).toThrow(NoProviderError);
+      expect(injector.get(FeatureFlags, { optional: true })).toBeUndefined();
+      expect(() => injector.get(FeatureFlags)).toThrow(NoProviderError);
     },
   );
 });
@@ -158,19 +184,16 @@ describe('declaring dependencies', () => {
 describe('ambient injector', () => {
   it('throws when injecting with no ambient injector', () => {
     setCurrentInjector(null);
+    const createMailer = () => ({ send: () => 'sent' });
 
-    expect(() => inject(createToken<string>())).toThrow(NoInjectorError);
+    expect(() => inject(createMailer)).toThrow(NoInjectorError);
   });
 
   it('exposes the resolving injector via CURRENT_INJECTOR', () => {
-    const other = createToken({ factory: () => 'other value' });
-    const token = createToken({
-      factory: (injector = inject(CURRENT_INJECTOR)) => injector.get(other),
-    });
+    const createMailer = () => ({ send: () => 'sent' });
+    const createNotifier = (injector = inject(CURRENT_INJECTOR)) => injector.get(createMailer);
 
-    const injector = createInjector();
-
-    expect(injector.get(token)).toBe('other value');
+    expect(createInjector().get(createNotifier).send()).toBe('sent');
   });
 
   it('restores the previous ambient injector after invoke', () => {
@@ -199,14 +222,12 @@ describe('ambient injector', () => {
   // with no try/finally, so a throwing factory leaked it process-wide.
   it('restores the ambient injector when a factory throws', { tags: ['regression'] }, () => {
     setCurrentInjector(null);
-    const boom = createToken({
-      factory: () => {
-        throw new Error('boom');
-      },
-    });
+    const connectToDatabase = (): { query: () => unknown[] } => {
+      throw new Error('connection refused');
+    };
     const injector = createInjector();
 
-    expect(() => injector.get(boom)).toThrow('boom');
+    expect(() => injector.get(connectToDatabase)).toThrow('connection refused');
     expect(getCurrentInjector({ optional: true })).toBeNull();
   });
 });

@@ -2,29 +2,29 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CircularDependencyError,
-  InjectionToken,
   NoInjectorError,
   NoProviderError,
   createInjector,
   createToken,
   inject,
-  provideValue,
   setCurrentInjector,
 } from './index.js';
 
 describe('NoProviderError', () => {
+  // Only a factory-less token can fail to resolve: a class or function is its
+  // own default provider, so it always succeeds.
   it('is thrown for a token with no factory and no provider', () => {
-    const token = createToken<string>({ name: 'ApiUrl' });
+    const ApiUrl = createToken<string>({ name: 'ApiUrl' });
 
-    expect(() => createInjector().get(token)).toThrow(NoProviderError);
+    expect(() => createInjector().get(ApiUrl)).toThrow(NoProviderError);
   });
 
   // this path was `it.todo` and interpolated the raw token, so the
   // one error most likely to be seen read "No provider found for [object Object]".
   it('names the token it could not resolve', { tags: ['regression'] }, () => {
-    const token = createToken<string>({ name: 'ApiUrl' });
+    const ApiUrl = createToken<string>({ name: 'ApiUrl' });
 
-    expect(() => createInjector().get(token)).toThrow(/ApiUrl/);
+    expect(() => createInjector().get(ApiUrl)).toThrow(/ApiUrl/);
   });
 
   it('never renders a token as [object Object]', () => {
@@ -52,82 +52,78 @@ describe('NoProviderError', () => {
 describe('NoInjectorError', () => {
   it('is thrown when injecting outside an injector', () => {
     setCurrentInjector(null);
+    const createMailer = () => ({ send: () => 'sent' });
 
-    expect(() => inject(createToken<string>())).toThrow(NoInjectorError);
+    expect(() => inject(createMailer)).toThrow(NoInjectorError);
   });
 });
 
-describe('CircularDependencyError', () => {
-  it('detects a token that depends on itself', () => {
-    const circular: InjectionToken<unknown> = createToken({
-      name: 'circular',
-      factory: (dep = inject(circular)) => dep,
-    });
+// Two services that each declare the other. Their names come straight from the
+// class, which is what the error message reports. The explicit parameter types
+// are what TypeScript needs to break the inference cycle — the injector still
+// finds the runtime cycle regardless.
+class OrderService {
+  billing: BillingService;
 
-    expect(() => createInjector().get(circular)).toThrow(CircularDependencyError);
+  constructor(billing: BillingService = inject(BillingService)) {
+    this.billing = billing;
+  }
+}
+
+class BillingService {
+  orders: OrderService;
+
+  constructor(orders: OrderService = inject(OrderService)) {
+    this.orders = orders;
+  }
+}
+
+describe('CircularDependencyError', () => {
+  it('detects a function that depends on itself', () => {
+    function createRouter(parent: unknown = inject(createRouter)): { parent: unknown } {
+      return { parent };
+    }
+
+    expect(() => createInjector().get(createRouter)).toThrow(CircularDependencyError);
   });
 
-  it('detects a cycle between two tokens', () => {
-    const a: InjectionToken<unknown> = createToken({
-      name: 'A',
-      factory: () => inject(b),
-    });
-    const b: InjectionToken<unknown> = createToken({
-      name: 'B',
-      factory: () => inject(a),
-    });
-
-    expect(() => createInjector().get(a)).toThrow(CircularDependencyError);
+  it('detects a cycle between two classes', () => {
+    expect(() => createInjector().get(OrderService)).toThrow(CircularDependencyError);
   });
 
   it('reports the path that formed the cycle', () => {
-    const a: InjectionToken<unknown> = createToken({
-      name: 'Alpha',
-      factory: () => inject(b),
-    });
-    const b: InjectionToken<unknown> = createToken({
-      name: 'Beta',
-      factory: () => inject(a),
-    });
-
-    expect(() => createInjector().get(a)).toThrow(/Alpha.*Beta/s);
+    expect(() => createInjector().get(OrderService)).toThrow(/OrderService.*BillingService/s);
   });
 
   it('still detects a cycle that crosses an injector boundary', () => {
-    const a: InjectionToken<unknown> = createToken({
-      name: 'A',
-      factory: () => inject(b),
-    });
-    const b: InjectionToken<unknown> = createToken({
-      name: 'B',
-      factory: () => inject(a),
-    });
-
     const child = createInjector().createChild();
 
-    expect(() => child.get(a)).toThrow(CircularDependencyError);
+    expect(() => child.get(OrderService)).toThrow(CircularDependencyError);
   });
 
   it('does not report a cycle for a diamond dependency', () => {
-    const shared = createToken({ name: 'Shared', factory: () => ({ v: 1 }) });
-    const left = createToken({ factory: () => inject(shared) });
-    const right = createToken({ factory: () => inject(shared) });
-    const root = createToken({
-      factory: () => [inject(left), inject(right)],
+    class Clock {
+      now(): number {
+        return 0;
+      }
+    }
+
+    const createLogger = (clock = inject(Clock)) => ({ clock });
+    const createTracer = (clock = inject(Clock)) => ({ clock });
+    const createApp = (logger = inject(createLogger), tracer = inject(createTracer)) => ({
+      logger,
+      tracer,
     });
 
-    const injector = createInjector();
+    const app = createInjector().get(createApp);
 
-    expect(injector.get(root)).toEqual([{ v: 1 }, { v: 1 }]);
+    expect(app.logger.clock).toBe(app.tracer.clock);
   });
 
   it('does not report a cycle when a token is resolved twice in sequence', () => {
-    const shared = createToken({ factory: () => 'shared' });
-    const injector = createInjector({
-      providers: [provideValue(shared, 'shared')],
-    });
+    const createSession = () => ({ id: 'session' });
+    const injector = createInjector();
 
-    expect(injector.get(shared)).toBe('shared');
-    expect(injector.get(shared)).toBe('shared');
+    expect(injector.get(createSession)).toBe(injector.get(createSession));
   });
 });

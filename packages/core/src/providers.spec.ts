@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   createInjector,
-  createToken,
   extendProvider,
   provide,
   provideExisting,
@@ -12,12 +11,12 @@ import {
 
 describe('provideValue', () => {
   it('provides a fixed value', () => {
-    const token = createToken<{ value: number }>();
-    const value = { value: 42 };
+    const getRetryPolicy = () => ({ retries: 3 });
+    const policy = { retries: 10 };
 
-    const injector = createInjector({ providers: [provideValue(token, value)] });
+    const injector = createInjector({ providers: [provideValue(getRetryPolicy, policy)] });
 
-    expect(injector.get(token)).toBe(value);
+    expect(injector.get(getRetryPolicy)).toBe(policy);
   });
 
   // provide() branched on `if (options.value)`, so every falsy
@@ -28,139 +27,157 @@ describe('provideValue', () => {
     ['empty string', ''],
     ['null', null],
   ] as const)('provides %s', { tags: ['regression'] }, (_label, value) => {
-    const token = createToken<typeof value>({
-      factory: () => 'fallback' as never,
-    });
+    const getSetting = (): unknown => 'its own value';
 
-    const injector = createInjector({ providers: [provideValue(token, value)] });
+    const injector = createInjector({ providers: [provideValue(getSetting, value)] });
 
-    expect(injector.get(token)).toBe(value);
+    expect(injector.get(getSetting)).toBe(value);
   });
 
-  it('provides undefined without falling back to the token factory', () => {
-    const token = createToken<string | undefined>({
-      factory: () => 'fallback',
-    });
+  it('provides undefined without falling back to the function it names', () => {
+    const getNickname = (): string | undefined => 'fallback';
 
-    const injector = createInjector({
-      providers: [provideValue(token, undefined)],
-    });
+    const injector = createInjector({ providers: [provideValue(getNickname, undefined)] });
 
-    expect(injector.get(token)).toBeUndefined();
+    expect(injector.get(getNickname)).toBeUndefined();
   });
 });
 
 describe('provideFactory', () => {
+  // The documented answer for a class the injector cannot construct on its
+  // own: hand it a factory instead of letting it guess at the arguments.
   it('runs the factory once and memoises the result', () => {
-    const factory = vi.fn(() => ({ value: 42 }));
-    const token = createToken<{ value: number }>();
+    class Database {
+      url: string;
 
-    const injector = createInjector({
-      providers: [provideFactory(token, factory)],
-    });
+      constructor(url: string) {
+        this.url = url;
+      }
+    }
 
-    expect(injector.get(token)).toBe(injector.get(token));
+    const factory = vi.fn(() => new Database('postgres://test'));
+
+    const injector = createInjector({ providers: [provideFactory(Database, factory)] });
+
+    expect(injector.get(Database)).toBe(injector.get(Database));
+    expect(injector.get(Database).url).toBe('postgres://test');
     expect(factory).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('provideExisting', () => {
-  it('aliases a token to a value provided elsewhere', () => {
-    const createValueA = () => 'A';
-    const createValueB = () => 'B';
+  it('aliases one function to another', () => {
+    const connectPrimary = () => 'primary connection';
+    const connectReplica = () => 'replica connection';
 
     const injector = createInjector({
-      providers: [provide(createValueA), provideExisting(createValueB, createValueA)],
+      providers: [provideExisting(connectReplica, connectPrimary)],
     });
 
-    expect(injector.get(createValueB)).toBe('A');
+    expect(injector.get(connectReplica)).toBe('primary connection');
   });
 
   // the alias re-invoked the target's factory instead of resolving
   // it through the injector, so aliasing a class produced a second instance.
   it('yields the same instance as the aliased token', { tags: ['regression'] }, () => {
-    class Thing {
+    class Logger {
       id = Math.random();
     }
-    const canonical = createToken({ factory: () => new Thing() });
-    const alias = createToken<Thing>();
+    class ConsoleLogger extends Logger {}
 
-    const injector = createInjector({
-      providers: [provideExisting(alias, canonical)],
-    });
+    const injector = createInjector({ providers: [provideExisting(Logger, ConsoleLogger)] });
 
-    expect(injector.get(alias)).toBe(injector.get(canonical));
+    expect(injector.get(Logger)).toBe(injector.get(ConsoleLogger));
+    expect(injector.get(Logger)).toBeInstanceOf(ConsoleLogger);
   });
 
   it('respects an override of the aliased token', () => {
-    const canonical = createToken({ factory: () => 'original' });
-    const alias = createToken<string>();
+    const connectPrimary = () => 'primary connection';
+    const connectReplica = () => 'replica connection';
 
     const injector = createInjector({
-      providers: [provideExisting(alias, canonical), provideValue(canonical, 'overridden')],
+      providers: [
+        provideExisting(connectReplica, connectPrimary),
+        provideValue(connectPrimary, 'overridden'),
+      ],
     });
 
-    expect(injector.get(alias)).toBe('overridden');
+    expect(injector.get(connectReplica)).toBe('overridden');
   });
 });
 
 describe('provide', () => {
-  it('makes a token provide itself when given no options', () => {
-    class MyClass {
-      value = 42;
+  it('makes a class provide itself when given no options', () => {
+    class EventBus {
+      listeners: string[] = [];
     }
 
-    const injector = createInjector({ providers: [provide(MyClass)] });
+    const injector = createInjector({ providers: [provide(EventBus)] });
 
-    expect(injector.get(MyClass)).toBeInstanceOf(MyClass);
+    expect(injector.get(EventBus)).toBeInstanceOf(EventBus);
+  });
+
+  it('accepts a bare class or function as shorthand for providing itself', () => {
+    class EventBus {
+      listeners: string[] = [];
+    }
+    const createQueue = () => ['job'];
+
+    const injector = createInjector({ providers: [EventBus, createQueue] });
+
+    expect(injector.get(EventBus)).toBeInstanceOf(EventBus);
+    expect(injector.get(createQueue)).toEqual(['job']);
   });
 
   it('replaces an earlier provider for the same token', () => {
-    const token = createToken<string>();
+    const getEnvironment = () => 'development';
 
     const injector = createInjector({
-      providers: [provideValue(token, 'first'), provideValue(token, 'second')],
+      providers: [
+        provideValue(getEnvironment, 'staging'),
+        provideValue(getEnvironment, 'production'),
+      ],
     });
 
-    expect(injector.get(token)).toBe('second');
+    expect(injector.get(getEnvironment)).toBe('production');
   });
 });
 
 describe('extendProvider', () => {
   it('accumulates values in registration order', () => {
-    const getWidgets = (): string[] => [];
+    const getMiddleware = (): string[] => [];
 
     const injector = createInjector();
     injector.addProviders(
-      extendProvider(getWidgets, (widgets) => [...widgets, 'new widget']),
-      extendProvider(getWidgets, (widgets) => [...widgets, 'another widget']),
+      extendProvider(getMiddleware, (middleware) => [...middleware, 'auth']),
+      extendProvider(getMiddleware, (middleware) => [...middleware, 'logging']),
     );
 
-    expect(injector.get(getWidgets)).toEqual(['new widget', 'another widget']);
+    expect(injector.get(getMiddleware)).toEqual(['auth', 'logging']);
   });
 
   it('extends a value registered by an earlier provider', () => {
-    const token = createToken<string[]>();
+    const getMiddleware = (): string[] => [];
 
     const injector = createInjector({
       providers: [
-        provideValue(token, ['base']),
-        extendProvider(token, (items) => [...items, 'extended']),
+        provideValue(getMiddleware, ['compression']),
+        extendProvider(getMiddleware, (middleware) => [...middleware, 'auth']),
       ],
     });
 
-    expect(injector.get(token)).toEqual(['base', 'extended']);
+    expect(injector.get(getMiddleware)).toEqual(['compression', 'auth']);
   });
 
   it('runs each extension once', () => {
-    const getWidgets = (): string[] => [];
-    const extend = vi.fn((widgets: string[]) => [...widgets, 'widget']);
+    const getMiddleware = (): string[] => [];
+    const extend = vi.fn((middleware: string[]) => [...middleware, 'auth']);
 
     const injector = createInjector();
-    injector.addProviders(extendProvider(getWidgets, extend));
+    injector.addProviders(extendProvider(getMiddleware, extend));
 
-    injector.get(getWidgets);
-    injector.get(getWidgets);
+    injector.get(getMiddleware);
+    injector.get(getMiddleware);
 
     expect(extend).toHaveBeenCalledTimes(1);
   });

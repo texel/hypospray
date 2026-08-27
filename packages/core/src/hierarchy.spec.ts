@@ -1,25 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  createInjector,
-  createToken,
-  extendProvider,
-  inject,
-  provide,
-  provideFactory,
-  provideValue,
-} from './index.js';
+import { createInjector, extendProvider, inject, provide, provideValue } from './index.js';
 
 describe('hierarchical injectors', () => {
   it('resolves a parent-provided value from a child', () => {
-    const token = createToken<object>();
-    const providedValue = {};
+    class Config {
+      url = 'https://example.com';
+    }
 
-    const parent = createInjector({
-      providers: [provideValue(token, providedValue)],
-    });
+    const parent = createInjector({ providers: [Config] });
+    const child = parent.createChild();
 
-    expect(parent.createChild().get(token)).toBe(providedValue);
+    expect(child.get(Config)).toBeInstanceOf(Config);
+    expect(child.get(Config)).toBe(parent.get(Config));
   });
 
   it('lets a child override a parent provider', () => {
@@ -37,29 +30,29 @@ describe('hierarchical injectors', () => {
   });
 
   it('does not let a child override leak into the parent', () => {
-    const token = createToken({ factory: () => 'parent' });
+    const getEnvironment = () => 'production';
 
     const parent = createInjector();
     const child = parent.createChild({
-      providers: [provideValue(token, 'child')],
+      providers: [provideValue(getEnvironment, 'test')],
     });
 
-    expect(child.get(token)).toBe('child');
-    expect(parent.get(token)).toBe('parent');
+    expect(child.get(getEnvironment)).toBe('test');
+    expect(parent.get(getEnvironment)).toBe('production');
   });
 
   it('does not re-run a parent factory when resolved from a child', () => {
-    const makeService = vi.fn(() => `service-${Math.random()}`);
+    const connectToDatabase = vi.fn(() => ({ id: Math.random() }));
 
     const parent = createInjector();
     const child = parent.createChild();
 
-    expect(parent.get(makeService)).toBe(child.get(makeService));
-    expect(makeService).toHaveBeenCalledTimes(1);
+    expect(parent.get(connectToDatabase)).toBe(child.get(connectToDatabase));
+    expect(connectToDatabase).toHaveBeenCalledTimes(1);
   });
 
-  // the parent lookup checked `if (value)`, so a parent that
-  // legitimately resolved a falsy value looked like a miss and the child built
+  // Regression: the parent lookup checked `if (value)`, so a parent that
+  // resolved a falsy value looked like a miss and the child built
   // its own copy.
   it.each([
     ['zero', 0],
@@ -70,15 +63,14 @@ describe('hierarchical injectors', () => {
     'shares a parent-resolved %s rather than rebuilding it',
     { tags: ['regression'] },
     (_label, value) => {
-      const factory = vi.fn(() => value);
-      const token = createToken<typeof value>({ factory });
+      const getSetting = vi.fn(() => value);
 
-      const parent = createInjector({ providers: [provide(token, { factory })] });
+      const parent = createInjector({ providers: [getSetting] });
       const child = parent.createChild();
 
-      expect(child.get(token)).toBe(value);
-      expect(parent.get(token)).toBe(value);
-      expect(factory).toHaveBeenCalledTimes(1);
+      expect(child.get(getSetting)).toBe(value);
+      expect(parent.get(getSetting)).toBe(value);
+      expect(getSetting).toHaveBeenCalledTimes(1);
     },
   );
 
@@ -86,27 +78,39 @@ describe('hierarchical injectors', () => {
   // asked. Without this, a root-registered singleton would be rebuilt for
   // every child that resolved it, and could see per-request overrides.
   it('resolves a parent-owned provider against the parent, not the caller', () => {
-    const Dep = createToken<string>({ name: 'Dep' });
-    const Service = createToken<string>({ name: 'Service' });
+    const getDatabaseUrl = () => 'postgres://primary';
 
-    const parent = createInjector({
-      providers: [provideValue(Dep, 'parent dep'), provideFactory(Service, () => inject(Dep))],
+    class Repository {
+      url: string;
+
+      constructor(url = inject(getDatabaseUrl)) {
+        this.url = url;
+      }
+    }
+
+    const parent = createInjector({ providers: [getDatabaseUrl, Repository] });
+    const child = parent.createChild({
+      providers: [provideValue(getDatabaseUrl, 'postgres://replica')],
     });
-    const child = parent.createChild({ providers: [provideValue(Dep, 'child dep')] });
 
-    expect(child.get(Service)).toBe('parent dep');
-    expect(child.get(Service)).toBe(parent.get(Service));
+    const repository = child.get(Repository);
+
+    expect(repository.url).toBe('postgres://primary');
+    expect(repository).toBe(parent.get(Repository));
   });
 
   it('resolves implicit tokens once, at the root', () => {
-    const makeService = vi.fn(() => ({}));
+    const createEventBus = vi.fn(() => ({ listeners: [] }));
 
     const root = createInjector();
     const childA = root.createChild();
     const childB = root.createChild();
 
-    expect(childA.get(makeService)).toBe(childB.get(makeService));
-    expect(makeService).toHaveBeenCalledTimes(1);
+    const eventBus = root.get(createEventBus);
+
+    expect(childA.get(createEventBus)).toBe(eventBus);
+    expect(childB.get(createEventBus)).toBe(eventBus);
+    expect(createEventBus).toHaveBeenCalledTimes(1);
   });
 
   describe('extendProvider across injectors', () => {
@@ -114,47 +118,47 @@ describe('hierarchical injectors', () => {
     // extending in a child silently discarded the parent's contributions —
     // exactly the accumulation case extendProvider exists for.
     it('builds on the value contributed by the parent', { tags: ['regression'] }, () => {
-      const getWidgets = (): string[] => [];
+      const getMiddleware = (): string[] => [];
 
       const parent = createInjector();
-      parent.addProviders(extendProvider(getWidgets, (w) => [...w, 'parent']));
+      parent.addProviders(extendProvider(getMiddleware, (m) => [...m, 'logging']));
 
       const child = parent.createChild({
-        providers: [extendProvider(getWidgets, (w) => [...w, 'child'])],
+        providers: [extendProvider(getMiddleware, (m) => [...m, 'auth'])],
       });
 
-      expect(child.get(getWidgets)).toEqual(['parent', 'child']);
+      expect(child.get(getMiddleware)).toEqual(['logging', 'auth']);
     });
 
     it('does not let a child extension modify the parent value', () => {
-      const getWidgets = (): string[] => [];
+      const getMiddleware = (): string[] => [];
 
       const parent = createInjector();
-      parent.addProviders(extendProvider(getWidgets, (w) => [...w, 'parent']));
+      parent.addProviders(extendProvider(getMiddleware, (m) => [...m, 'logging']));
 
       const child = parent.createChild({
-        providers: [extendProvider(getWidgets, (w) => [...w, 'child'])],
+        providers: [extendProvider(getMiddleware, (m) => [...m, 'auth'])],
       });
 
-      expect(child.get(getWidgets)).toEqual(['parent', 'child']);
-      expect(parent.get(getWidgets)).toEqual(['parent']);
+      expect(child.get(getMiddleware)).toEqual(['logging', 'auth']);
+      expect(parent.get(getMiddleware)).toEqual(['logging']);
     });
 
     it('keeps sibling extensions isolated from one another', () => {
-      const getWidgets = (): string[] => [];
+      const getMiddleware = (): string[] => [];
 
       const parent = createInjector();
-      parent.addProviders(extendProvider(getWidgets, (w) => [...w, 'parent']));
+      parent.addProviders(extendProvider(getMiddleware, (m) => [...m, 'logging']));
 
       const a = parent.createChild({
-        providers: [extendProvider(getWidgets, (w) => [...w, 'a'])],
+        providers: [extendProvider(getMiddleware, (m) => [...m, 'auth'])],
       });
       const b = parent.createChild({
-        providers: [extendProvider(getWidgets, (w) => [...w, 'b'])],
+        providers: [extendProvider(getMiddleware, (m) => [...m, 'metrics'])],
       });
 
-      expect(a.get(getWidgets)).toEqual(['parent', 'a']);
-      expect(b.get(getWidgets)).toEqual(['parent', 'b']);
+      expect(a.get(getMiddleware)).toEqual(['logging', 'auth']);
+      expect(b.get(getMiddleware)).toEqual(['logging', 'metrics']);
     });
   });
 });

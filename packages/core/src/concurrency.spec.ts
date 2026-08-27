@@ -3,16 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   CircularDependencyError,
   createInjector,
-  createToken,
   getCurrentInjector,
   inject,
-  provideFactory,
   provideValue,
   setCurrentInjector,
 } from './index.node.js';
 
-// Deliberately the Node entry: async-flow isolation is what the `node` export
-// condition provides. The default entry's sync strategy is covered in
+// We're explicitly importing from the `node` entrypoint to test the
+// async flow. The default entry's sync strategy is covered in
 // context.spec.ts.
 
 /** Yields to the microtask queue so concurrent flows interleave. */
@@ -21,22 +19,18 @@ const tick = (times = 1): Promise<void> =>
 
 describe('interleaved resolution', () => {
   it('keeps ambient injectors separate across concurrent async flows', async () => {
-    const RequestId = createToken<string>({ name: 'RequestId' });
+    const getRequestId = () => 'no request';
 
     const handler = async () => {
-      const before = inject(RequestId);
+      const before = inject(getRequestId);
       await tick(3);
-      const after = inject(RequestId);
+      const after = inject(getRequestId);
       return { before, after };
     };
 
     const root = createInjector();
-    const requestA = root.createChild({
-      providers: [provideValue(RequestId, 'a')],
-    });
-    const requestB = root.createChild({
-      providers: [provideValue(RequestId, 'b')],
-    });
+    const requestA = root.createChild({ providers: [provideValue(getRequestId, 'a')] });
+    const requestB = root.createChild({ providers: [provideValue(getRequestId, 'b')] });
 
     const [a, b] = await Promise.all([requestA.invoke(handler), requestB.invoke(handler)]);
 
@@ -61,49 +55,44 @@ describe('interleaved resolution', () => {
   });
 
   it('resolves per-injector values when two flows race on the same token', async () => {
-    const Session = createToken<string>({ name: 'Session' });
-    const Greeting = createToken<Promise<string>>({ name: 'Greeting' });
+    const getSession = () => 'anonymous';
 
     const greet = async (): Promise<string> => {
-      const session = inject(Session);
+      const session = inject(getSession);
       await tick(2);
       return `hello ${session}`;
     };
 
     // Both request-scoped providers are registered on the request injector.
     // A provider resolves in the injector that owns it, so registering
-    // `Greeting` on the root would deny it any view of a per-request Session.
+    // `greet` on the root would deny it any view of a per-request session.
     const root = createInjector();
-    const a = root.createChild({
-      providers: [provideValue(Session, 'a'), provideFactory(Greeting, greet)],
-    });
-    const b = root.createChild({
-      providers: [provideValue(Session, 'b'), provideFactory(Greeting, greet)],
-    });
+    const a = root.createChild({ providers: [provideValue(getSession, 'a'), greet] });
+    const b = root.createChild({ providers: [provideValue(getSession, 'b'), greet] });
 
-    const [first, second] = await Promise.all([a.get(Greeting), b.get(Greeting)]);
+    const [first, second] = await Promise.all([a.get(greet), b.get(greet)]);
 
     expect(first).toBe('hello a');
     expect(second).toBe('hello b');
   });
 
   it('does not let one flow observe another flow through a shared root', async () => {
-    const Scope = createToken<string>({ name: 'Scope' });
+    const getScope = () => 'unscoped';
     const seen: string[] = [];
 
     const record = async () => {
-      seen.push(inject(Scope));
+      seen.push(inject(getScope));
       await tick(1);
-      seen.push(inject(Scope));
+      seen.push(inject(getScope));
       await tick(1);
-      seen.push(inject(Scope));
+      seen.push(inject(getScope));
     };
 
     const root = createInjector();
 
     await Promise.all(
       ['one', 'two', 'three'].map((name) =>
-        root.createChild({ providers: [provideValue(Scope, name)] }).invoke(record),
+        root.createChild({ providers: [provideValue(getScope, name)] }).invoke(record),
       ),
     );
 
@@ -142,18 +131,15 @@ describe('resolution state isolation', () => {
     'does not leak cycle-detection state after a failed resolution',
     { tags: ['regression'] },
     () => {
-      const boom = createToken({
-        name: 'Boom',
-        factory: (): string => {
-          throw new Error('boom');
-        },
-      });
+      const connectToDatabase = (): { query: () => unknown[] } => {
+        throw new Error('connection refused');
+      };
 
-      expect(() => createInjector().get(boom)).toThrow('boom');
+      expect(() => createInjector().get(connectToDatabase)).toThrow('connection refused');
 
       let thrown: unknown;
       try {
-        createInjector().get(boom);
+        createInjector().get(connectToDatabase);
       } catch (error) {
         thrown = error;
       }
@@ -164,48 +150,42 @@ describe('resolution state isolation', () => {
   );
 
   it('does not report a false cycle when one injector resolves through another', () => {
-    const Inner = createToken({ name: 'Inner', factory: () => 'inner value' });
     const other = createInjector();
+    const loadSettings = () => ({ theme: 'dark' });
+    const createBridge = () => other.get(loadSettings);
 
-    const Bridge = createToken({
-      name: 'Bridge',
-      factory: () => other.get(Inner),
-    });
-
-    expect(createInjector().get(Bridge)).toBe('inner value');
+    expect(createInjector().get(createBridge)).toEqual({ theme: 'dark' });
   });
 
   it('does not report a false cycle when the same token resolves in two injectors', () => {
-    const Shared = createToken({ name: 'Shared', factory: () => ({}) });
+    class Cache {
+      entries = new Map<string, string>();
+    }
 
     const outer = createInjector();
     const inner = createInjector();
 
-    const Wrapper = createToken({
-      name: 'Wrapper',
-      factory: () => ({
-        own: inject(Shared),
-        other: inner.get(Shared),
-      }),
+    const createReport = () => ({
+      own: inject(Cache),
+      other: inner.get(Cache),
     });
 
-    const result = outer.get(Wrapper);
+    const result = outer.get(createReport);
 
     expect(result.own).not.toBe(result.other);
   });
 
   it('runs a memoised factory once even when raced', async () => {
-    const factory = vi.fn(() => ({}));
-    const token = createToken({ name: 'Once', factory });
+    const createCache = vi.fn(() => new Map<string, string>());
 
     const injector = createInjector();
 
     const [a, b] = await Promise.all([
-      Promise.resolve().then(() => injector.get(token)),
-      Promise.resolve().then(() => injector.get(token)),
+      Promise.resolve().then(() => injector.get(createCache)),
+      Promise.resolve().then(() => injector.get(createCache)),
     ]);
 
     expect(a).toBe(b);
-    expect(factory).toHaveBeenCalledTimes(1);
+    expect(createCache).toHaveBeenCalledTimes(1);
   });
 });

@@ -4,7 +4,6 @@ import type { ContextStrategy } from './index.js';
 import {
   createInjector,
   createSyncContextStrategy,
-  createToken,
   getContextStrategy,
   getCurrentInjector,
   inject,
@@ -64,10 +63,10 @@ describe('replacing the context strategy', () => {
 
     setContextStrategy(strategy);
 
-    const token = createToken<string>({ name: 'Token' });
-    const injector = createInjector({ providers: [provideValue(token, 'value')] });
+    const getTheme = () => 'system';
+    const injector = createInjector({ providers: [provideValue(getTheme, 'dark')] });
 
-    expect(injector.invoke(() => inject(token))).toBe('value');
+    expect(injector.invoke(() => inject(getTheme))).toBe('dark');
     expect(strategy.run).toHaveBeenCalled();
     expect(strategy.get).toHaveBeenCalled();
   });
