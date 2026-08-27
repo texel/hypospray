@@ -1,15 +1,16 @@
+import { getContext, runInContext } from './context.js';
+import { CURRENT_INJECTOR } from './current-injector.js';
+import { debugToken, debugTokens, debugTokensHierarchically } from './debug.js';
+import { CircularDependencyError, NoProviderError } from './errors.js';
 import {
   isExtendDeclaration,
+  isProviderDeclaration,
   toProvider,
   type Provider,
   type ProviderArray,
   type ProviderDeclaration,
 } from './providers.js';
 import type { ProviderToken } from './tokens.js';
-
-function notImplemented(what: string): never {
-  throw new Error(`Not implemented: ${what}`);
-}
 
 export type Logger = Pick<Console, 'debug' | 'error' | 'warn' | 'info'>;
 
@@ -28,39 +29,37 @@ export interface InjectorOptions {
 
 export type ChildInjectorOptions = Omit<InjectorOptions, 'parent'>;
 
+type AnyToken = ProviderToken<unknown>;
+
 export class Injector {
-  protected readonly options: InjectorOptions;
+  private readonly providers = new Map<AnyToken, Provider<unknown>>();
 
-  private providers = new Map<ProviderToken<unknown>, Provider<unknown>>();
+  private readonly values = new Map<AnyToken, unknown>();
 
-  private values = new Map<ProviderToken<unknown>, unknown>();
+  private readonly parent: Injector | null;
 
-  private parent: Injector | null = null;
+  private readonly logger: Logger;
 
-  private logger: Logger;
-
-  private debug = false;
+  private readonly debug: boolean;
 
   constructor(options: InjectorOptions = {}) {
-    this.options = options;
+    this.parent = options.parent ?? null;
+    this.logger = options.logger ?? console;
+    this.debug = options.debug ?? false;
 
-    this.parent = options?.parent || null;
-
-    this.logger = options?.logger || console;
-
-    this.debug = options?.debug ?? false;
-
-    if (options?.providers) {
+    if (options.providers) {
       this.addProviders(...options.providers);
     }
   }
 
   /**
    * Registers providers, replacing any existing provider for the same token
-   * unless the declaration was built by {@link extendProvider}.
+   * unless the declaration was built by `extendProvider`.
    */
-  addProviders(..._providers: ProviderArray): void {
-    notImplemented('Injector.addProviders');
+  addProviders(...providers: ProviderArray): void {
+    for (const entry of providers) {
+      this.addProviderFromDeclaration(this.toDeclaration(entry));
+    }
   }
 
   /**
@@ -68,41 +67,154 @@ export class Injector {
    * previous one afterwards — including when `fn` throws, and independently
    * for concurrent async flows.
    */
-  invoke<T>(_fn: () => T): T {
-    notImplemented('Injector.invoke');
+  invoke<T>(fn: () => T): T {
+    return runInContext({ injector: this, stack: [] }, fn);
   }
 
   get<T>(token: ProviderToken<T>, options: InjectOptions & { optional: true }): T | undefined;
   get<T>(token: ProviderToken<T>, options?: InjectOptions): T;
-  get<T>(_token: ProviderToken<T>, _options?: InjectOptions): T | undefined {
-    notImplemented('Injector.get');
-  }
-
-  createChild(_options?: ChildInjectorOptions): Injector {
-    notImplemented('Injector.createChild');
-  }
-
-  private getOrCreateProvider<T>(token: ProviderToken<T>): Provider<unknown> {
-    const provider = this.providers.get(token);
-    if (provider) {
-      return provider;
+  get<T>(token: ProviderToken<T>, options?: InjectOptions): T | undefined {
+    // Answered directly so it is never memoised: every injector reports itself.
+    if ((token as AnyToken) === (CURRENT_INJECTOR as AnyToken)) {
+      return this as unknown as T;
     }
 
-    const newProvider = toProvider(token);
-    this.providers.set(token, newProvider);
-    return newProvider;
+    // Join the caller's resolution if there is one, so cycle detection spans
+    // nested injectors; otherwise start a fresh stack for this flow.
+    const stack = getContext()?.stack ?? [];
+
+    // A token nobody provides belongs to the root, so it resolves once and is
+    // shared, rather than once per injector that happens to ask.
+    const owner = this.findOwner(token) ?? this.rootInjector();
+
+    return owner.resolveHere(token, options, stack);
   }
 
-  private addProviderFromDeclaration<T>(declaration: ProviderDeclaration<T>) {
-    const { token } = declaration;
+  createChild(options: ChildInjectorOptions = {}): Injector {
+    return new Injector({
+      ...options,
+      parent: this,
+      debug: options.debug ?? this.debug,
+      logger: options.logger ?? this.logger,
+    });
+  }
+
+  /** The nearest injector in the chain that has a provider for `token`. */
+  private findOwner(token: AnyToken): Injector | null {
+    if (this.providers.has(token)) {
+      return this;
+    }
+
+    return this.parent?.findOwner(token) ?? null;
+  }
+
+  private rootInjector(): Injector {
+    return this.parent?.rootInjector() ?? this;
+  }
+
+  /**
+   * Resolves `token` in this injector, which by now is known to be the one
+   * that owns it. Memoised here, so a value has exactly one home.
+   */
+  private resolveHere<T>(
+    token: ProviderToken<T>,
+    options: InjectOptions | undefined,
+    stack: Array<AnyToken>,
+  ): T | undefined {
+    const key = token as AnyToken;
+
+    if (this.values.has(key)) {
+      return this.values.get(key) as T;
+    }
+
+    if (stack.includes(key)) {
+      throw new CircularDependencyError(
+        `Circular dependency detected for ${debugToken(key)}: ${debugTokens([...stack, key])}`,
+      );
+    }
+
+    let provider = this.providers.get(key);
+
+    if (!provider) {
+      try {
+        provider = toProvider(token, this.logger);
+      } catch (error) {
+        if (error instanceof NoProviderError) {
+          // Nothing is recorded for a miss, so an optional lookup cannot
+          // satisfy a later required one.
+          if (options?.optional) {
+            return undefined;
+          }
+
+          throw new NoProviderError(`No provider found for ${debugToken(key)}`);
+        }
+
+        throw error;
+      }
+
+      this.providers.set(key, provider);
+    }
+
+    stack.push(key);
+
+    try {
+      if (this.debug) {
+        this.logger.debug(`Injector: resolving ${debugTokensHierarchically(stack)}`);
+      }
+
+      const value = runInContext({ injector: this, stack }, provider);
+      this.values.set(key, value);
+
+      return value as T;
+    } finally {
+      // Always unwound, so a throw leaves nothing behind for the next caller.
+      stack.pop();
+    }
+  }
+
+  private toDeclaration<T>(
+    entry: ProviderToken<T> | ProviderDeclaration<T>,
+  ): ProviderDeclaration<T> {
+    if (isProviderDeclaration<T>(entry)) {
+      return entry;
+    }
+
+    const token = entry as ProviderToken<T>;
+    return { token, provider: toProvider(token, this.logger) as Provider<T> };
+  }
+
+  private addProviderFromDeclaration<T>(declaration: ProviderDeclaration<T>): void {
+    const key = declaration.token as AnyToken;
 
     if (isExtendDeclaration(declaration)) {
       const { extend } = declaration;
-      const previous = this.getOrCreateProvider(token) as Provider<T>;
-      this.providers.set(token, () => extend(previous()));
+      // Captured now, so the extension builds on whatever was registered at
+      // this point — including a provider inherited from an ancestor.
+      const previous = this.inheritedProvider(declaration.token);
+      this.providers.set(key, () => extend(previous()));
     } else {
-      this.providers.set(token, declaration.provider as Provider<unknown>);
+      this.providers.set(key, declaration.provider as Provider<unknown>);
     }
+  }
+
+  /**
+   * The provider an extension should build on: the nearest one in the chain,
+   * or a freshly synthesised one if the token has never been provided.
+   *
+   * Read-only with respect to ancestors — extending in a child never mutates
+   * the parent's registration.
+   */
+  private inheritedProvider<T>(token: ProviderToken<T>): Provider<T> {
+    const own = this.providers.get(token as AnyToken);
+    if (own) {
+      return own as Provider<T>;
+    }
+
+    if (this.parent) {
+      return this.parent.inheritedProvider(token);
+    }
+
+    return toProvider(token, this.logger) as Provider<T>;
   }
 }
 

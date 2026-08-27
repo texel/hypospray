@@ -1,3 +1,6 @@
+export { createSyncContextStrategy, getContextStrategy, setContextStrategy } from './context.js';
+export type { ContextStrategy, ResolutionContext } from './context.js';
+
 export { CircularDependencyError, NoInjectorError, NoProviderError } from './errors.js';
 
 export { InjectionToken, createToken } from './tokens.js';

@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createInjector, createToken, extendProvider, provide, provideValue } from './index.js';
+import {
+  createInjector,
+  createToken,
+  extendProvider,
+  inject,
+  provide,
+  provideFactory,
+  provideValue,
+} from './index.js';
 
 describe('hierarchical injectors', () => {
   it('resolves a parent-provided value from a child', () => {
@@ -15,15 +23,17 @@ describe('hierarchical injectors', () => {
   });
 
   it('lets a child override a parent provider', () => {
-    const token = createToken({ factory: () => ({ value: 42 }) });
+    function getValue() {
+      return 42;
+    }
 
     const parent = createInjector();
     const child = parent.createChild({
-      providers: [provide(token, { factory: () => ({ value: 43 }) })],
+      providers: [provide(getValue, { factory: () => 43 })],
     });
 
-    expect(parent.get(token)).toEqual({ value: 42 });
-    expect(child.get(token)).toEqual({ value: 43 });
+    expect(parent.get(getValue)).toEqual(42);
+    expect(child.get(getValue)).toEqual(43);
   });
 
   it('does not let a child override leak into the parent', () => {
@@ -71,6 +81,22 @@ describe('hierarchical injectors', () => {
       expect(factory).toHaveBeenCalledTimes(1);
     },
   );
+
+  // A provider resolves in the injector that owns it, not in whichever one
+  // asked. Without this, a root-registered singleton would be rebuilt for
+  // every child that resolved it, and could see per-request overrides.
+  it('resolves a parent-owned provider against the parent, not the caller', () => {
+    const Dep = createToken<string>({ name: 'Dep' });
+    const Service = createToken<string>({ name: 'Service' });
+
+    const parent = createInjector({
+      providers: [provideValue(Dep, 'parent dep'), provideFactory(Service, () => inject(Dep))],
+    });
+    const child = parent.createChild({ providers: [provideValue(Dep, 'child dep')] });
+
+    expect(child.get(Service)).toBe('parent dep');
+    expect(child.get(Service)).toBe(parent.get(Service));
+  });
 
   it('resolves implicit tokens once, at the root', () => {
     const makeService = vi.fn(() => ({}));

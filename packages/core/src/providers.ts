@@ -1,7 +1,8 @@
-import { debugToken } from './debug.js';
+import { debugToken, warnIfNoDefaultArgs } from './debug.js';
 import { NoProviderError } from './errors.js';
-import { isClass } from './helpers.js';
+import { isClass, type FunctionSignature } from './helpers.js';
 import { inject } from './inject.js';
+import type { Logger } from './injector.js';
 import { InjectionToken, type ProviderToken } from './tokens.js';
 
 /**
@@ -153,16 +154,21 @@ export function extendProvider<T>(
  * Synthesises a provider for a token that has to satisfy itself: an
  * {@link InjectionToken} with a factory, a class, or a plain function.
  */
-export function toProvider(t: unknown, logger = console): Provider<unknown> {
+export function toProvider(t: unknown, logger: Logger = console): Provider<unknown> {
   if (t instanceof InjectionToken && t.factory) {
     return t.factory;
   }
 
+  // The arity check belongs here and nowhere else: this is the only point at
+  // which we know we are about to construct the token ourselves, rather than
+  // hand back a factory somebody else supplied.
   if (isClass(t)) {
+    warnIfNoDefaultArgs(t, logger);
     return () => new t();
   }
 
   if (typeof t === 'function') {
+    warnIfNoDefaultArgs(t as FunctionSignature<unknown>, logger);
     return t as Provider<unknown>;
   }
 

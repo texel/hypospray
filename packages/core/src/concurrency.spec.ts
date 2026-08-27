@@ -9,7 +9,11 @@ import {
   provideFactory,
   provideValue,
   setCurrentInjector,
-} from './index.js';
+} from './index.node.js';
+
+// Deliberately the Node entry: async-flow isolation is what the `node` export
+// condition provides. The default entry's sync strategy is covered in
+// context.spec.ts.
 
 /** Yields to the microtask queue so concurrent flows interleave. */
 const tick = (times = 1): Promise<void> =>
@@ -60,17 +64,22 @@ describe('interleaved resolution', () => {
     const Session = createToken<string>({ name: 'Session' });
     const Greeting = createToken<Promise<string>>({ name: 'Greeting' });
 
-    const root = createInjector();
-    root.addProviders(
-      provideFactory(Greeting, async (): Promise<string> => {
-        const session = inject(Session);
-        await tick(2);
-        return `hello ${session}`;
-      }),
-    );
+    const greet = async (): Promise<string> => {
+      const session = inject(Session);
+      await tick(2);
+      return `hello ${session}`;
+    };
 
-    const a = root.createChild({ providers: [provideValue(Session, 'a')] });
-    const b = root.createChild({ providers: [provideValue(Session, 'b')] });
+    // Both request-scoped providers are registered on the request injector.
+    // A provider resolves in the injector that owns it, so registering
+    // `Greeting` on the root would deny it any view of a per-request Session.
+    const root = createInjector();
+    const a = root.createChild({
+      providers: [provideValue(Session, 'a'), provideFactory(Greeting, greet)],
+    });
+    const b = root.createChild({
+      providers: [provideValue(Session, 'b'), provideFactory(Greeting, greet)],
+    });
 
     const [first, second] = await Promise.all([a.get(Greeting), b.get(Greeting)]);
 
