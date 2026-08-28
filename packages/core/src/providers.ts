@@ -5,43 +5,35 @@ import { inject } from './inject.js';
 import type { Logger } from './injector.js';
 import { InjectionToken, type ProviderToken } from './tokens.js';
 
-/**
- * Produces a dependency. Providers take no arguments — the "extend" case has
- * its own declaration shape so the accumulator never leaks into this signature.
- */
+/** A function that creates a dependency. */
 export type Provider<T> = () => T;
 
 /**
- * Receives the previously-registered value for a token and returns its
- * replacement.
+ * Transforms the value produced by the preceding provider.
  */
-export type ExtendFn<T> = (previous: T) => T;
+export type ProviderExtension<T> = (previous: T) => T;
 
+/** Replaces the provider associated with a token. */
 export interface ReplaceDeclaration<T> {
   readonly token: ProviderToken<T>;
   readonly provider: Provider<T>;
 }
 
+/** Extends the value associated with a token. */
 export interface ExtendDeclaration<T> {
   readonly token: ProviderToken<T>;
-  readonly extend: ExtendFn<T>;
+  readonly extend: ProviderExtension<T>;
 }
 
-/**
- * Associates a token with the provider that satisfies it.
- *
- * The two arms carry their function in differently-named properties rather
- * than sharing `provider` with a boolean flag. A zero-argument `Provider<T>`
- * is assignable to a one-argument `ExtendFn<T>`, so a shared property could
- * never tell them apart — `'extend' in declaration` can.
- */
+/** A provider registration accepted by an injector. */
 export type ProviderDeclaration<T> = ReplaceDeclaration<T> | ExtendDeclaration<T>;
 
-export type ProviderArray = ReadonlyArray<ProviderToken<any> | ProviderDeclaration<any>>;
+/** Providers and provider declarations accepted by an injector. */
+export type ProviderList = ReadonlyArray<ProviderToken<any> | ProviderDeclaration<any>>;
 
 /**
- * Exactly one of these may be given. The `never` members stop an object
- * literal from satisfying the union by mixing two of them.
+ * Selects one way to provide a token. The `never` members prevent an object
+ * literal from specifying more than one.
  */
 export type ProvideOptions<T> =
   | { factory: Provider<T>; value?: never; existing?: never }
@@ -51,24 +43,20 @@ export type ProvideOptions<T> =
 /**
  * Declares how a token should be satisfied. With no options, the token
  * provides itself.
- *
- * `ProviderToken<T>` is covariant, so `existing` and `value` already accept
- * any subtype of `T` without a second type parameter.
  */
 export function provide<T>(
   token: ProviderToken<T>,
   options?: ProvideOptions<T>,
 ): ReplaceDeclaration<T> {
-  return { token, provider: toValueProvider(token, options) };
+  return { token, provider: providerFromOptions(token, options) };
 }
 
-function toValueProvider<T>(
+function providerFromOptions<T>(
   token: ProviderToken<T>,
   options: ProvideOptions<T> | undefined,
 ): Provider<T> {
   if (options) {
-    // The union's `never` members make each branch unreachable to narrowing,
-    // so widen once here rather than casting at every access.
+    // Widen once because the union's `never` members interfere with narrowing.
     const given = options as {
       factory?: Provider<T>;
       value?: T;
@@ -79,8 +67,7 @@ function toValueProvider<T>(
       return given.factory;
     }
 
-    // Presence, not truthiness: `false`, `0`, `''`, `null` and `undefined` are
-    // provided values like any other.
+    // Check presence so falsy values, including `undefined`, remain valid.
     if ('value' in given) {
       const { value } = given;
       return () => value;
@@ -88,8 +75,8 @@ function toValueProvider<T>(
 
     if (given.existing) {
       const { existing } = given;
-      // Resolved through the injector so the alias yields the *same* instance
-      // rather than re-running the target's factory.
+      // Resolve the target through the injector so both tokens return the same
+      // memoised value.
       return () => inject(existing);
     }
   }
@@ -98,7 +85,7 @@ function toValueProvider<T>(
 }
 
 /**
- * Provide a fixed value for the given token.
+ * Provides a fixed value for a token.
  *
  * Falsy values — `false`, `0`, `''`, `null`, `undefined` — are provided
  * values like any other.
@@ -108,7 +95,7 @@ export function provideValue<T>(token: ProviderToken<T>, value: T): ReplaceDecla
 }
 
 /**
- * Provide a factory for the given token. It runs on first resolution, and the
+ * Provides a factory for a token. It runs on first resolution, and the
  * result is memoised for the lifetime of the injector that owns it.
  */
 export function provideFactory<T>(
@@ -119,8 +106,8 @@ export function provideFactory<T>(
 }
 
 /**
- * Alias one token to another. Resolving either yields the *same* instance —
- * the aliased token is resolved through the injector, not re-constructed.
+ * Aliases one token to another. Resolving either token returns the same
+ * memoised value.
  */
 export function provideExisting<T>(
   token: ProviderToken<T>,
@@ -130,9 +117,10 @@ export function provideExisting<T>(
 }
 
 /**
- * Build a value up across several providers, each receiving what the previous
- * one produced. Extensions registered on a child injector build on the
- * parent's value without modifying it.
+ * Extends a token by passing its preceding value to `extend`. Multiple
+ * extensions can build a value up in stages, such as a middleware stack.
+ * Extensions in a child injector start with the parent's value without
+ * modifying it.
  *
  * ```ts
  * const injector = createInjector({
@@ -145,34 +133,35 @@ export function provideExisting<T>(
  */
 export function extendProvider<T>(
   token: ProviderToken<T>,
-  extend: ExtendFn<T>,
+  extend: ProviderExtension<T>,
 ): ExtendDeclaration<T> {
   return { token, extend };
 }
 
 /**
- * The provider a token supplies for itself — an {@link InjectionToken} with a
- * factory, a class, or a plain function — or `null` if it has none.
+ * Returns the provider supplied by the token itself: an {@link InjectionToken}
+ * factory, a class constructor, or a plain function.
  *
- * Returns `null` rather than throwing so an optional resolution can check
- * without catching.
+ * Returns `null` when the token cannot provide itself.
  */
-export function toProvider<T>(t: ProviderToken<T>, logger: Logger = console): Provider<T> | null {
-  if (t instanceof InjectionToken) {
-    return t.factory ?? null;
+export function toProvider<T>(
+  token: ProviderToken<T>,
+  logger: Logger = console,
+): Provider<T> | null {
+  if (token instanceof InjectionToken) {
+    return token.factory ?? null;
   }
 
-  // The arity check belongs here and nowhere else: this is the only point at
-  // which we know we are about to construct the token ourselves, rather than
-  // hand back a factory somebody else supplied.
-  if (isClass(t)) {
-    warnIfNoDefaultArgs(t, logger);
-    return () => new t();
+  // Warn only when using the token itself as the provider. Explicit factories
+  // are the caller's responsibility.
+  if (isClass(token)) {
+    warnIfNoDefaultArgs(token, logger);
+    return () => new token();
   }
 
-  if (typeof t === 'function') {
-    warnIfNoDefaultArgs(t, logger);
-    return t;
+  if (typeof token === 'function') {
+    warnIfNoDefaultArgs(token, logger);
+    return token;
   }
 
   // Unreachable for a well-typed caller; reachable from JavaScript, or through
@@ -180,31 +169,33 @@ export function toProvider<T>(t: ProviderToken<T>, logger: Logger = console): Pr
   return null;
 }
 
-/** As {@link toProvider}, but throws when the token cannot provide itself. */
-export function ensureProvider<T>(t: ProviderToken<T>, logger: Logger = console): Provider<T> {
-  const provider = toProvider(t, logger);
+/** Returns the token's own provider or throws if it has none. */
+export function ensureProvider<T>(token: ProviderToken<T>, logger: Logger = console): Provider<T> {
+  const provider = toProvider(token, logger);
 
   if (!provider) {
-    throw noProviderError(t);
+    throw noProviderError(token);
   }
 
   return provider;
 }
 
-/**
- * The single place the "cannot be provided" wording lives, so a caller that has
- * already found the miss does not have to invent its own.
- */
-export function noProviderError(t: ProviderToken<unknown>): NoProviderError {
+/** Creates the appropriate error for a token that cannot be provided. */
+export function noProviderError(token: ProviderToken<unknown>): NoProviderError {
   return new NoProviderError(
-    t instanceof InjectionToken
-      ? `No provider found for ${debugToken(t)}`
-      : `Unsupported type, unable to create a provider: ${debugToken(t)}`,
+    token instanceof InjectionToken
+      ? `No provider found for ${debugToken(token)}`
+      : `Unsupported type, unable to create a provider: ${debugToken(token)}`,
   );
 }
 
-export function isProviderDeclaration<T>(t: unknown): t is ProviderDeclaration<T> {
-  return typeof t === 'object' && t !== null && 'token' in t && ('provider' in t || 'extend' in t);
+export function isProviderDeclaration<T>(value: unknown): value is ProviderDeclaration<T> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'token' in value &&
+    ('provider' in value || 'extend' in value)
+  );
 }
 
 export function isExtendDeclaration<T>(

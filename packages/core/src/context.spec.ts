@@ -93,7 +93,10 @@ describe('diagnosing a lost context', () => {
   // The guidance would be a red herring for a strategy that does carry context
   // across awaits: there, a missing injector means run() really was skipped.
   it('withholds the await guidance from an async-aware strategy', async () => {
-    const strategy: ContextStrategy = { ...createSyncContextStrategy(), asyncAware: true };
+    const strategy: ContextStrategy = {
+      ...createSyncContextStrategy(),
+      preservesAsyncContext: true,
+    };
 
     const message = (await catchAfterAwait(strategy)).message;
 

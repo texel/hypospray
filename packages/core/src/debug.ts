@@ -1,4 +1,4 @@
-import type { ClassConstructor, FunctionSignature } from './helpers.js';
+import type { ClassConstructor, FunctionToken } from './helpers.js';
 import type { Logger } from './injector.js';
 import { InjectionToken, type ProviderToken } from './tokens.js';
 
@@ -41,7 +41,7 @@ export function debugTokensHierarchically(tokens: Array<ProviderToken<unknown>>)
  * If you forgot to do that, this function will log a warning at runtime.
  */
 export function warnIfNoDefaultArgs(
-  fn: FunctionSignature<unknown> | ClassConstructor<unknown>,
+  fn: FunctionToken<unknown> | ClassConstructor<unknown>,
   console: Logger,
 ) {
   if (fn.length > 0) {

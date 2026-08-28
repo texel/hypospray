@@ -4,7 +4,7 @@ export type { ContextStrategy, ResolutionContext } from './context.js';
 export { CircularDependencyError, NoInjectorError, NoProviderError } from './errors.js';
 
 export { InjectionToken, createToken } from './tokens.js';
-export type { ClassConstructor, FunctionSignature } from './helpers.js';
+export type { ClassConstructor, FunctionToken } from './helpers.js';
 export type { ProviderToken, TokenOptions } from './tokens.js';
 
 export {
@@ -16,15 +16,15 @@ export {
 } from './providers.js';
 export type {
   ExtendDeclaration,
-  ExtendFn,
+  ProviderExtension,
   Provider,
-  ProviderArray,
+  ProviderList,
   ProviderDeclaration,
   ProvideOptions,
   ReplaceDeclaration,
 } from './providers.js';
 
 export { Injector, createInjector } from './injector.js';
-export type { ChildInjectorOptions, InjectOptions, InjectorOptions, Logger } from './injector.js';
+export type { ChildInjectorOptions, InjectorOptions, Logger, ResolveOptions } from './injector.js';
 
 export { CURRENT_INJECTOR, getCurrentInjector, inject, setCurrentInjector } from './inject.js';

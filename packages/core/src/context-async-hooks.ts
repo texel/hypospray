@@ -15,7 +15,7 @@ export function createAsyncLocalStorageContextStrategy(): ContextStrategy {
 
   return {
     name: 'async-local-storage',
-    asyncAware: true,
+    preservesAsyncContext: true,
 
     get: () => storage.getStore() ?? null,
     run: (context, fn) => storage.run(context, fn),

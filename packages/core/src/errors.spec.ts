@@ -19,9 +19,7 @@ describe('NoProviderError', () => {
     expect(() => createInjector().get(ApiUrl)).toThrow(NoProviderError);
   });
 
-  // this path was `it.todo` and interpolated the raw token, so the
-  // one error most likely to be seen read "No provider found for [object Object]".
-  it('names the token it could not resolve', { tags: ['regression'] }, () => {
+  it('names the token it could not resolve', () => {
     const ApiUrl = createToken<string>({ name: 'ApiUrl' });
 
     expect(() => createInjector().get(ApiUrl)).toThrow(/ApiUrl/);
@@ -41,10 +39,7 @@ describe('NoProviderError', () => {
     expect((thrown as Error).message).not.toContain('[object Object]');
   });
 
-  // resolve() used to catch toProvider's error and throw a fresh one, so every
-  // miss reported "No provider found" — including a value that was never a
-  // token, where the reason is the more useful half of the message.
-  it('distinguishes a missing provider from an unusable token', { tags: ['regression'] }, () => {
+  it('distinguishes a missing provider from an unusable token', () => {
     const ApiUrl = createToken<string>({ name: 'ApiUrl' });
 
     expect(() => createInjector().get(ApiUrl)).toThrow(/No provider found for/);

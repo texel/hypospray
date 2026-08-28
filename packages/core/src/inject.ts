@@ -1,7 +1,7 @@
 import { enterContext, getContext, getContextStrategy } from './context.js';
 import { CURRENT_INJECTOR } from './current-injector.js';
 import { NoInjectorError } from './errors.js';
-import type { InjectOptions, Injector } from './injector.js';
+import type { Injector, ResolveOptions } from './injector.js';
 import type { ProviderToken } from './tokens.js';
 
 export { CURRENT_INJECTOR };
@@ -18,10 +18,10 @@ export { CURRENT_INJECTOR };
  */
 export function inject<T>(
   token: ProviderToken<T>,
-  options: InjectOptions & { optional: true },
+  options: ResolveOptions & { optional: true },
 ): T | undefined;
-export function inject<T>(token: ProviderToken<T>, options?: InjectOptions): T;
-export function inject<T>(token: ProviderToken<T>, options?: InjectOptions): T | undefined {
+export function inject<T>(token: ProviderToken<T>, options?: ResolveOptions): T;
+export function inject<T>(token: ProviderToken<T>, options?: ResolveOptions): T | undefined {
   return getCurrentInjector().get(token, options);
 }
 
@@ -31,9 +31,9 @@ export function inject<T>(token: ProviderToken<T>, options?: InjectOptions): T |
  * Ambient state is per-flow rather than per-module, so concurrent async flows
  * each see the injector they were started under.
  */
-export function getCurrentInjector(options: InjectOptions & { optional: true }): Injector | null;
-export function getCurrentInjector(options?: InjectOptions): Injector;
-export function getCurrentInjector(options?: InjectOptions): Injector | null {
+export function getCurrentInjector(options: ResolveOptions & { optional: true }): Injector | null;
+export function getCurrentInjector(options?: ResolveOptions): Injector;
+export function getCurrentInjector(options?: ResolveOptions): Injector | null {
   const injector = getContext()?.injector ?? null;
 
   if (!injector && !options?.optional) {
@@ -44,13 +44,8 @@ export function getCurrentInjector(options?: InjectOptions): Injector | null {
 }
 
 /**
- * Explains a missing injection context.
- *
- * Two different mistakes produce this error and they need different advice:
- * either no context was ever installed, or one was and the strategy could not
- * follow it across an `await`. The two are indistinguishable from in here —
- * all `getContext()` reports is an empty context — so the second explanation
- * is offered only when the installed strategy admits it is possible.
+ * Builds an error message for injection outside an active context, with
+ * additional guidance when the current strategy does not support `await`.
  */
 function noInjectorMessage(): string {
   const strategy = getContextStrategy();
@@ -58,7 +53,7 @@ function noInjectorMessage(): string {
   const base =
     'inject() must be called from an injection context: while a provider is being resolved, or inside the function passed to Injector.run().';
 
-  if (strategy.asyncAware !== false) {
+  if (strategy.preservesAsyncContext !== false) {
     return base;
   }
 

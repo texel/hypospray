@@ -2,17 +2,11 @@ import type { Injector } from './injector.js';
 import type { ProviderToken } from './tokens.js';
 
 /**
- * The state of one resolution flow. From the perspective of the calling code,
- * this is "global", but we can't represent it as a module-level variable,
- * since that would cause problems with concurrent flows (e.g. two requests
- * running at the same time).
+ * Internal state associated with a dependency-resolution flow.
  *
- * Adjacent to the *injection context* that the docs and error messages talk
- * about, but not the same thing, and not a substitute for it in prose: that is
- * the user-facing condition ("an injector is available here"), while this is
- * the object a {@link ContextStrategy} moves around to provide it, carrying
- * resolution bookkeeping nobody outside the injector needs. Reach for it only
- * when implementing a strategy.
+ * Context strategies carry this state between calls. Framework integrations
+ * may implement a strategy, but application code generally should not use
+ * this type directly.
  */
 export interface ResolutionContext {
   /**
@@ -28,35 +22,27 @@ export interface ResolutionContext {
 }
 
 /**
- * How resolution context is carried across a call.
+ * Stores and restores resolution context for a particular runtime.
  *
- * Different runtimes have different mechanisms for carrying per-flow (or per-request) context.
- * Node has `AsyncLocalStorage`, Svelte has `setContext`, React has providers - so core
- * defines the shape and lets the environment supply the mechanism.
+ * Runtime integrations can implement this interface using facilities such as
+ * Node's `AsyncLocalStorage` or a framework's context API.
  */
 export interface ContextStrategy {
   /** Identifies the strategy in diagnostics. */
   readonly name?: string;
 
   /**
-   * Whether this strategy can follow a flow across an `await`.
+   * Whether the strategy preserves context across `await`.
    *
-   * Diagnostics read this when explaining a missing injection context: under a
-   * strategy that says `false`, an `inject()` after a suspension point is the
-   * likely cause and worth spelling out. Leave it unset if the answer is
-   * genuinely unknown — that guidance is only offered when a strategy states
-   * `false` outright, never on a guess.
+   * Leave undefined when this is unknown. A value of `false` enables more
+   * specific diagnostics for injection attempted after an `await`.
    */
-  readonly asyncAware?: boolean;
+  readonly preservesAsyncContext?: boolean;
 
   /** The context for the current flow, or `null` outside any. */
   get(): ResolutionContext | null;
 
-  /**
-   * Runs `fn` with `context`, restoring the previous one afterwards.
-   * It's **very** important for the previous context to be restored
-   * if `fn` throws.
-   */
+  /** Runs `fn` with `context` and restores the previous context, even if `fn` throws. */
   run<T>(context: ResolutionContext | null, fn: () => T): T;
 
   /** Sets the context for the rest of the current flow, with no restore. */
@@ -78,7 +64,7 @@ export function createSyncContextStrategy(): ContextStrategy {
 
   return {
     name: 'sync',
-    asyncAware: false,
+    preservesAsyncContext: false,
 
     get: () => current,
 
@@ -111,6 +97,7 @@ export function setContextStrategy(next: ContextStrategy): void {
   strategy = next;
 }
 
+/** Returns the strategy currently used to carry resolution context. */
 export function getContextStrategy(): ContextStrategy {
   return strategy;
 }

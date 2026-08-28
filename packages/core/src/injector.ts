@@ -10,20 +10,20 @@ import {
   noProviderError,
   toProvider,
   type Provider,
-  type ProviderArray,
+  type ProviderList,
   type ProviderDeclaration,
 } from './providers.js';
 import type { ProviderToken } from './tokens.js';
 
 export type Logger = Pick<Console, 'debug' | 'error' | 'warn' | 'info'>;
 
-export interface InjectOptions {
+export interface ResolveOptions {
   optional?: boolean;
 }
 
 export interface InjectorOptions {
   parent?: Injector | null;
-  providers?: ProviderArray;
+  providers?: ProviderList;
   /** Trace every resolution to the logger. Inherited by child injectors. */
   debug?: boolean;
   /** Defaults to the global console. Inherited by child injectors. */
@@ -69,29 +69,27 @@ export class Injector {
    * Registers providers, replacing any existing provider for the same token
    * unless the declaration was built by `extendProvider`.
    */
-  addProviders(...providers: ProviderArray): void {
+  addProviders(...providers: ProviderList): void {
     for (const entry of providers) {
       this.addProviderFromDeclaration(this.toDeclaration(entry));
     }
   }
 
   /**
-   * Runs `fn` with this injector as the ambient one, so `inject()` inside it
-   * resolves from here. The previous context is restored afterwards, including
-   * when `fn` throws.
+   * Runs `fn` with this injector available to `inject()`.
    *
-   * How far that reaches into an async `fn` is the installed
-   * {@link ContextStrategy}'s business: an async-aware strategy carries the
-   * context across `await`, while the default synchronous one stops at the
-   * first suspension point.
+   * The configured context strategy determines whether the injector remains
+   * available after an `await`. The previous context is restored when `fn`
+   * returns or throws.
    */
   run<T>(fn: () => T): T {
     return runInContext({ injector: this, stack: [] }, fn);
   }
 
-  get<T>(token: ProviderToken<T>, options: InjectOptions & { optional: true }): T | undefined;
-  get<T>(token: ProviderToken<T>, options?: InjectOptions): T;
-  get<T>(token: ProviderToken<T>, options?: InjectOptions): T | undefined {
+  /** Resolves and memoises the value associated with `token`. */
+  get<T>(token: ProviderToken<T>, options: ResolveOptions & { optional: true }): T | undefined;
+  get<T>(token: ProviderToken<T>, options?: ResolveOptions): T;
+  get<T>(token: ProviderToken<T>, options?: ResolveOptions): T | undefined {
     // Join the caller's resolution if there is one, so cycle detection spans
     // nested injectors; otherwise start a fresh stack for this flow.
     const stack = getContext()?.stack ?? [];
@@ -103,6 +101,7 @@ export class Injector {
     return owner.resolve(token, options, stack);
   }
 
+  /** Creates an injector that inherits providers, debug settings, and logging from this one. */
   createChild(options: ChildInjectorOptions = {}): Injector {
     return new Injector({
       ...options,
@@ -139,7 +138,7 @@ export class Injector {
     //   - `resolve` stores what `toProvider(token)` returned, under `token`;
     //   - `addProviderFromDeclaration` stores `declaration.provider` under
     //     `declaration.token`, which `ProviderDeclaration<T>` binds together,
-    //     or its extend closure, which returns `ExtendFn<T>`'s `T`.
+    //     or its extend closure, which returns `ProviderExtension<T>`'s `T`.
     //
     // A new writer has to keep that pairing or this read becomes unsound.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
@@ -166,7 +165,7 @@ export class Injector {
    */
   private resolve<T>(
     token: ProviderToken<T>,
-    options: InjectOptions | undefined,
+    options: ResolveOptions | undefined,
     stack: Array<AnyToken>,
   ): T | undefined {
     const key: AnyToken = token;
@@ -208,11 +207,10 @@ export class Injector {
 
       const value = runInContext({ injector: this, stack }, provider);
 
-      // FIXME: This reads awkwardly
-      // A memoised promise is handed to every later consumer, and any of them
-      // may await it a turn or more after it settles. Node treats a rejection
-      // with no handler attached as fatal, so claim it here — consumers
-      // awaiting the promise still see the rejection exactly as before.
+      // Attach a handler before caching the promise: consumers may not await it
+      // until after it rejects, which Node would report as an unhandled rejection.
+      // Since unhandled rejections kill the process, leaving this out would be
+      // disruptive. Awaiting the original promise still propagates the rejection normally.
       if (isThenable(value)) {
         value.catch((error: unknown) => {
           if (this.debug) {
@@ -270,6 +268,7 @@ export class Injector {
   }
 }
 
+/** Creates an injector with the supplied providers and options. */
 export function createInjector(options?: InjectorOptions): Injector {
   return new Injector(options);
 }

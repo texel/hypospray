@@ -1,4 +1,4 @@
-import type { ClassConstructor, FunctionSignature } from './helpers.js';
+import type { ClassConstructor, FunctionToken } from './helpers.js';
 
 /**
  * Anything that can identify a dependency.
@@ -33,7 +33,7 @@ import type { ClassConstructor, FunctionSignature } from './helpers.js';
  * type has no runtime representation, or if you want to customize
  * the token or factory function.
  */
-export type ProviderToken<T> = InjectionToken<T> | ClassConstructor<T> | FunctionSignature<T>;
+export type ProviderToken<T> = InjectionToken<T> | ClassConstructor<T> | FunctionToken<T>;
 
 export interface TokenOptions<T> {
   /**
@@ -73,6 +73,7 @@ export class InjectionToken<T> {
   }
 }
 
+/** Creates a unique token for a dependency that has no runtime representation. */
 export function createToken<T>(options?: TokenOptions<T>): InjectionToken<T> {
   return new InjectionToken<T>(options);
 }
