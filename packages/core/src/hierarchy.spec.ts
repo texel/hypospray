@@ -110,6 +110,7 @@ describe('hierarchical injectors', () => {
 
     expect(childA.get(createEventBus)).toBe(eventBus);
     expect(childB.get(createEventBus)).toBe(eventBus);
+
     expect(createEventBus).toHaveBeenCalledTimes(1);
   });
 

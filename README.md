@@ -61,10 +61,42 @@ automatically.
 - **Spec-first.** `*.spec.ts` files are the contract. Until a piece is
   implemented its stub throws `Not implemented`, so a red suite is expected.
 
+## Injection context
+
+`inject()` takes no injector argument — it reads the ambient one. The places
+where there is an ambient one to read are called the **injection context**, and
+there are exactly two:
+
+- **While a provider is being resolved.** This covers a class constructor and
+  its field initializers, a function acting as its own factory, a factory
+  passed to `provideFactory`, and anything any of those calls synchronously.
+- **Inside the function passed to `Injector.run()`.**
+
+```ts
+const createClock = () => ({ now: () => Date.now() });
+
+// Provider being resolved: `clock` resolves against the injector.
+const createLogger = (clock = inject(createClock)) => ({
+  log: (message: string) => `${clock.now()}: ${message}`,
+});
+
+// Explicit entry: for code the injector did not call.
+const injector = createInjector();
+injector.run(() => inject(createLogger).log('ready'));
+```
+
+Outside both, `inject()` throws `NoInjectorError` rather than guessing. The
+message distinguishes the two ways to get there — never having entered a
+context, and leaving one by suspending — because the fix differs.
+
+`setCurrentInjector()` enters a context without a matching exit. It exists for
+tests and for framework adapters that own their own context lifetime; prefer
+`Injector.run()` everywhere else.
+
 ## Runtime context
 
-Ambient injection needs somewhere to keep "the injector for this flow".
-Core defines that as a `ContextStrategy` and lets the runtime supply the
+Carrying an injection context needs somewhere to keep "the injector for this
+flow". Core defines that as a `ContextStrategy` and lets the runtime supply the
 mechanism, rather than hardcoding one:
 
 - The **default entry** uses a synchronous strategy — a plain variable with

@@ -196,29 +196,29 @@ describe('ambient injector', () => {
     expect(createInjector().get(createNotifier).send()).toBe('sent');
   });
 
-  it('restores the previous ambient injector after invoke', () => {
+  it('restores the previous ambient injector after run', () => {
     setCurrentInjector(null);
     const injector = createInjector();
 
-    const seen = injector.invoke(() => getCurrentInjector());
+    const seen = injector.run(() => getCurrentInjector());
 
     expect(seen).toBe(injector);
     expect(getCurrentInjector({ optional: true })).toBeNull();
   });
 
-  it('restores the previous ambient injector for nested invokes', () => {
+  it('restores the previous ambient injector for nested runs', () => {
     const outer = createInjector();
     const inner = createInjector();
 
-    outer.invoke(() => {
-      inner.invoke(() => {
+    outer.run(() => {
+      inner.run(() => {
         expect(getCurrentInjector()).toBe(inner);
       });
       expect(getCurrentInjector()).toBe(outer);
     });
   });
 
-  // invoke() set the ambient injector, called fn, then restored it
+  // run() set the ambient injector, called fn, then restored it
   // with no try/finally, so a throwing factory leaked it process-wide.
   it('restores the ambient injector when a factory throws', { tags: ['regression'] }, () => {
     setCurrentInjector(null);

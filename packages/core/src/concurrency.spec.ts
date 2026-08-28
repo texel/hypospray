@@ -32,7 +32,7 @@ describe('interleaved resolution', () => {
     const requestA = root.createChild({ providers: [provideValue(getRequestId, 'a')] });
     const requestB = root.createChild({ providers: [provideValue(getRequestId, 'b')] });
 
-    const [a, b] = await Promise.all([requestA.invoke(handler), requestB.invoke(handler)]);
+    const [a, b] = await Promise.all([requestA.run(handler), requestB.run(handler)]);
 
     expect(a).toEqual({ before: 'a', after: 'a' });
     expect(b).toEqual({ before: 'b', after: 'b' });
@@ -49,8 +49,8 @@ describe('interleaved resolution', () => {
     };
 
     await Promise.all([
-      injectorA.invoke(() => observe(injectorA)),
-      injectorB.invoke(() => observe(injectorB)),
+      injectorA.run(() => observe(injectorA)),
+      injectorB.run(() => observe(injectorB)),
     ]);
   });
 
@@ -92,7 +92,7 @@ describe('interleaved resolution', () => {
 
     await Promise.all(
       ['one', 'two', 'three'].map((name) =>
-        root.createChild({ providers: [provideValue(getScope, name)] }).invoke(record),
+        root.createChild({ providers: [provideValue(getScope, name)] }).run(record),
       ),
     );
 
@@ -108,11 +108,11 @@ describe('interleaved resolution', () => {
     const succeeding = createInjector();
 
     const results = await Promise.allSettled([
-      failing.invoke(async () => {
+      failing.run(async () => {
         await tick(1);
         throw new Error('boom');
       }),
-      succeeding.invoke(async () => {
+      succeeding.run(async () => {
         await tick(2);
         return getCurrentInjector();
       }),

@@ -17,19 +17,19 @@ afterEach(() => {
 });
 
 describe('the default context strategy', () => {
-  it('makes an injector ambient for the duration of invoke', () => {
+  it('makes an injector ambient for the duration of run', () => {
     const injector = createInjector();
 
     expect(getCurrentInjector({ optional: true })).toBeNull();
-    expect(injector.invoke(() => getCurrentInjector())).toBe(injector);
+    expect(injector.run(() => getCurrentInjector())).toBe(injector);
     expect(getCurrentInjector({ optional: true })).toBeNull();
   });
 
-  it('restores the previous context when invoke throws', () => {
+  it('restores the previous context when run throws', () => {
     const injector = createInjector();
 
     expect(() =>
-      injector.invoke(() => {
+      injector.run(() => {
         throw new Error('boom');
       }),
     ).toThrow('boom');
@@ -44,7 +44,7 @@ describe('the default context strategy', () => {
   it('does not carry context across an await', async () => {
     const injector = createInjector();
 
-    const seen = await injector.invoke(async () => {
+    const seen = await injector.run(async () => {
       await Promise.resolve();
       return getCurrentInjector({ optional: true });
     });
@@ -59,7 +59,7 @@ describe('diagnosing a lost context', () => {
     setContextStrategy(strategy);
     const getTheme = () => 'system';
 
-    const error = await createInjector().invoke(async () => {
+    const error = await createInjector().run(async () => {
       await Promise.resolve();
       try {
         inject(getTheme);
@@ -73,8 +73,8 @@ describe('diagnosing a lost context', () => {
     return error as Error;
   };
 
-  // "call it inside Injector.invoke()" is the one piece of advice that does not
-  // apply here — the call *was* inside invoke(), just past an await.
+  // Naming run() as the fix is the one thing that cannot help here: the call
+  // already was inside run(), just past an await.
   it('explains that a non-async-aware strategy cannot cross an await', async () => {
     const message = (await catchAfterAwait(createSyncContextStrategy())).message;
 
@@ -91,7 +91,7 @@ describe('diagnosing a lost context', () => {
   });
 
   // The guidance would be a red herring for a strategy that does carry context
-  // across awaits: there, a missing injector means invoke() really was skipped.
+  // across awaits: there, a missing injector means run() really was skipped.
   it('withholds the await guidance from an async-aware strategy', async () => {
     const strategy: ContextStrategy = { ...createSyncContextStrategy(), asyncAware: true };
 
@@ -123,7 +123,7 @@ describe('replacing the context strategy', () => {
     const getTheme = () => 'system';
     const injector = createInjector({ providers: [provideValue(getTheme, 'dark')] });
 
-    expect(injector.invoke(() => inject(getTheme))).toBe('dark');
+    expect(injector.run(() => inject(getTheme))).toBe('dark');
     expect(strategy.run).toHaveBeenCalled();
     expect(strategy.get).toHaveBeenCalled();
   });

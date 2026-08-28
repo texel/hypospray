@@ -1,0 +1,2 @@
+- Make the README not sound like it was written by a clanker (by writing it myself)
+- Figure out why resolve returns | undefined

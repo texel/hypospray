@@ -64,19 +64,25 @@ export class Injector {
   }
 
   /**
-   * Runs `fn` with this injector as the ambient injector, restoring the
-   * previous one afterwards — including when `fn` throws, and independently
-   * for concurrent async flows.
+   * Runs `fn` with this injector as the ambient one, so `inject()` inside it
+   * resolves from here. The previous context is restored afterwards, including
+   * when `fn` throws.
+   *
+   * How far that reaches into an async `fn` is the installed
+   * {@link ContextStrategy}'s business: an async-aware strategy carries the
+   * context across `await`, while the default synchronous one stops at the
+   * first suspension point.
    */
-  invoke<T>(fn: () => T): T {
+  run<T>(fn: () => T): T {
     return runInContext({ injector: this, stack: [] }, fn);
   }
 
   get<T>(token: ProviderToken<T>, options: InjectOptions & { optional: true }): T | undefined;
   get<T>(token: ProviderToken<T>, options?: InjectOptions): T;
   get<T>(token: ProviderToken<T>, options?: InjectOptions): T | undefined {
-    // Answered directly so it is never memoised: every injector reports itself.
-    if ((token as AnyToken) === (CURRENT_INJECTOR as AnyToken)) {
+    // We can short-circuit requests for the current injector because
+    // hey buddy, we're it.
+    if (token === CURRENT_INJECTOR) {
       return this as unknown as T;
     }
 
@@ -88,7 +94,7 @@ export class Injector {
     // shared, rather than once per injector that happens to ask.
     const owner = this.findOwner(token) ?? this.rootInjector();
 
-    return owner.resolveHere(token, options, stack);
+    return owner.resolve(token, options, stack);
   }
 
   createChild(options: ChildInjectorOptions = {}): Injector {
@@ -117,7 +123,7 @@ export class Injector {
    * Resolves `token` in this injector, which by now is known to be the one
    * that owns it. Memoised here, so a value has exactly one home.
    */
-  private resolveHere<T>(
+  private resolve<T>(
     token: ProviderToken<T>,
     options: InjectOptions | undefined,
     stack: Array<AnyToken>,
@@ -165,6 +171,7 @@ export class Injector {
 
       const value = runInContext({ injector: this, stack }, provider);
 
+      // FIXME: This reads awkwardly
       // A memoised promise is handed to every later consumer, and any of them
       // may await it a turn or more after it settles. Node treats a rejection
       // with no handler attached as fatal, so claim it here — consumers
@@ -181,7 +188,7 @@ export class Injector {
 
       return value as T;
     } finally {
-      // Always unwound, so a throw leaves nothing behind for the next caller.
+      // Always unwind, so a throw leaves nothing behind for the next caller.
       stack.pop();
     }
   }
@@ -198,12 +205,12 @@ export class Injector {
   }
 
   private addProviderFromDeclaration<T>(declaration: ProviderDeclaration<T>): void {
-    const key = declaration.token as AnyToken;
+    const key = declaration.token;
 
     if (isExtendDeclaration(declaration)) {
       const { extend } = declaration;
       // Captured now, so the extension builds on whatever was registered at
-      // this point — including a provider inherited from an ancestor.
+      // this point, including a provider inherited from an ancestor.
       const previous = this.inheritedProvider(declaration.token);
       this.providers.set(key, () => extend(previous()));
     } else {
@@ -219,7 +226,7 @@ export class Injector {
    * the parent's registration.
    */
   private inheritedProvider<T>(token: ProviderToken<T>): Provider<T> {
-    const own = this.providers.get(token as AnyToken);
+    const own = this.providers.get(token);
     if (own) {
       return own as Provider<T>;
     }

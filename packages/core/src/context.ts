@@ -6,6 +6,13 @@ import type { ProviderToken } from './tokens.js';
  * this is "global", but we can't represent it as a module-level variable,
  * since that would cause problems with concurrent flows (e.g. two requests
  * running at the same time).
+ *
+ * Adjacent to the *injection context* that the docs and error messages talk
+ * about, but not the same thing, and not a substitute for it in prose: that is
+ * the user-facing condition ("an injector is available here"), while this is
+ * the object a {@link ContextStrategy} moves around to provide it, carrying
+ * resolution bookkeeping nobody outside the injector needs. Reach for it only
+ * when implementing a strategy.
  */
 export interface ResolutionContext {
   /**

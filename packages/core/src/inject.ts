@@ -56,7 +56,7 @@ function noInjectorMessage(): string {
   const strategy = getContextStrategy();
 
   const base =
-    'inject() must be called from an injection context: while a provider is being resolved, or inside the function passed to Injector.invoke().';
+    'inject() must be called from an injection context: while a provider is being resolved, or inside the function passed to Injector.run().';
 
   if (strategy.asyncAware !== false) {
     return base;
@@ -65,7 +65,7 @@ function noInjectorMessage(): string {
   return [
     base,
     '',
-    `The installed context strategy (${strategy.name ?? 'unknown'}) does not carry an injection context across an \`await\`. It restores the previous context as soon as the function passed to invoke() returns — and an async function returns at its first \`await\`, not at its end. An inject() after an await is therefore outside the context, even though it sits inside invoke() lexically.`,
+    `The installed context strategy (${strategy.name ?? 'unknown'}) does not carry an injection context across an \`await\`. It restores the previous context as soon as the function passed to run() returns — and an async function returns at its first \`await\`, not at its end. An inject() after an await is therefore outside the context, even though it sits inside run() lexically.`,
     '',
     'If that is what happened here:',
     '  - Capture the injector before awaiting: `const injector = getCurrentInjector()`, then `injector.get(token)` after.',
@@ -76,7 +76,7 @@ function noInjectorMessage(): string {
 
 /**
  * Sets the ambient injector for the rest of the current flow, with no matching
- * restore. Prefer `Injector.invoke()` — this exists for tests and for
+ * restore. Prefer `Injector.run()` — this exists for tests and for
  * framework adapters that own their own context lifetime.
  */
 export function setCurrentInjector(injector: Injector | null): void {
