@@ -1,7 +1,17 @@
-export { createSyncContextStrategy, getContextStrategy, setContextStrategy } from './context.js';
-export type { ContextStrategy, ResolutionContext } from './context.js';
+export {
+  createSyncContextStrategy,
+  getContextStrategy,
+  setContextStrategy,
+  setDefaultContextStrategy,
+} from './context.js';
+export type { ContextStrategy, ResolutionContext, SyncContextStrategyOptions } from './context.js';
 
-export { CircularDependencyError, NoInjectorError, NoProviderError } from './errors.js';
+export {
+  CircularDependencyError,
+  ConcurrentContextError,
+  NoInjectorError,
+  NoProviderError,
+} from './errors.js';
 
 export { InjectionToken, createToken } from './tokens.js';
 export type { ClassConstructor, FunctionToken } from './helpers.js';

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ContextStrategy } from './index.js';
 import {
+  ConcurrentContextError,
   NoInjectorError,
   createInjector,
   createSyncContextStrategy,
@@ -137,5 +138,77 @@ describe('replacing the context strategy', () => {
     setContextStrategy(strategy);
 
     expect(getContextStrategy()).toBe(strategy);
+  });
+});
+
+describe('interleaving under the sync strategy', () => {
+  /** Yields to the microtask queue so two flows can overlap. */
+  const tick = (): Promise<void> => Promise.resolve();
+
+  it('throws when a second injector runs while another flow is suspended', async () => {
+    const root = createInjector();
+    const a = root.createChild();
+    const b = root.createChild();
+
+    // `a` suspends at its first await, leaving its flow open. Starting `b`
+    // while that is pending is the interleave the sync strategy cannot serve.
+    const pending = a.run(async () => {
+      await tick();
+    });
+
+    expect(() => b.run(async () => {})).toThrow(ConcurrentContextError);
+
+    await pending;
+  });
+
+  it('allows the same injector to run concurrently with itself', async () => {
+    const injector = createInjector();
+
+    const first = injector.run(async () => {
+      await tick();
+      return 1;
+    });
+    const second = injector.run(async () => 2);
+
+    expect(await Promise.all([first, second])).toEqual([1, 2]);
+  });
+
+  it('allows a second flow once the first has settled', async () => {
+    const root = createInjector();
+    const a = root.createChild();
+    const b = root.createChild();
+
+    await a.run(async () => {
+      await tick();
+    });
+
+    await expect(b.run(async () => 'ok')).resolves.toBe('ok');
+  });
+
+  it('does not fire on synchronous runs', () => {
+    const root = createInjector();
+    const a = root.createChild();
+    const b = root.createChild();
+
+    expect(() => {
+      a.run(() => undefined);
+      b.run(() => undefined);
+    }).not.toThrow();
+  });
+
+  it('restores last-writer-wins when strict is off', async () => {
+    setContextStrategy(createSyncContextStrategy({ strict: false }));
+
+    const root = createInjector();
+    const a = root.createChild();
+    const b = root.createChild();
+
+    const pending = a.run(async () => {
+      await tick();
+    });
+
+    expect(() => b.run(async () => {})).not.toThrow();
+
+    await pending;
   });
 });

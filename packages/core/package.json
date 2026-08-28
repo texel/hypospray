@@ -28,9 +28,7 @@
     "!src/**/*.test.ts"
   ],
   "type": "module",
-  "sideEffects": [
-    "**/index.node.js"
-  ],
+  "sideEffects": false,
   "main": "./dist/index.node.js",
   "types": "./dist/index.node.d.ts",
   "exports": {

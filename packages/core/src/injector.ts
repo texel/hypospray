@@ -1,4 +1,4 @@
-import { getContext, runInContext } from './context.js';
+import { getContext, runInContext, setContextStrategy, type ContextStrategy } from './context.js';
 import { CURRENT_INJECTOR } from './current-injector.js';
 import { debugToken, debugTokens, debugTokensHierarchically } from './debug.js';
 import { CircularDependencyError } from './errors.js';
@@ -28,9 +28,18 @@ export interface InjectorOptions {
   debug?: boolean;
   /** Defaults to the global console. Inherited by child injectors. */
   logger?: Logger;
+  /**
+   * Installs the mechanism that carries ambient context, as
+   * {@link setContextStrategy} would.
+   *
+   * Ambient context is process-wide — `inject()` takes no injector argument, so
+   * there is one place for it to look — which makes this a root-level setting
+   * rather than a per-injector one. Child injectors inherit nothing here.
+   */
+  context?: ContextStrategy;
 }
 
-export type ChildInjectorOptions = Omit<InjectorOptions, 'parent'>;
+export type ChildInjectorOptions = Omit<InjectorOptions, 'parent' | 'context'>;
 
 type AnyToken = ProviderToken<unknown>;
 
@@ -50,6 +59,12 @@ export class Injector {
   private readonly debug: boolean;
 
   constructor(options: InjectorOptions = {}) {
+    // Before anything can resolve, so a strategy passed here governs this
+    // injector's own first run().
+    if (options.context) {
+      setContextStrategy(options.context);
+    }
+
     this.parent = options.parent ?? null;
     this.logger = options.logger ?? console;
     this.debug = options.debug ?? false;
@@ -83,7 +98,7 @@ export class Injector {
    * returns or throws.
    */
   run<T>(fn: () => T): T {
-    return runInContext({ injector: this, stack: [] }, fn);
+    return runInContext({ injector: this, stack: [], flow: true }, fn);
   }
 
   /** Resolves and memoises the value associated with `token`. */
