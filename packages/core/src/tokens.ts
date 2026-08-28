@@ -3,10 +3,35 @@ import type { ClassConstructor, FunctionSignature } from './helpers.js';
 /**
  * Anything that can identify a dependency.
  *
- * A class or a function is its own token *and* its own default factory, which
- * is what makes the zero-config path work. An {@link InjectionToken} covers
- * the cases those can't: a dependency with no sensible default, or one whose
- * type has no runtime representation.
+ * A class or a function acts as a token *and* its own default factory, which
+ * makes most dependencies simple and ergonomic to construct.
+ * ```ts
+ * interface Store {
+ *   count: number;
+ * }
+
+ * function createStore(): Store {
+ *   return {
+ *     count: 0,
+ *   };
+ * }
+ *
+ * const injector = new Injector();
+ * const store = injector.get(createStore);
+ * ```
+
+ * Functions can even be used for cases where a default doesn't make sense -
+ * just raise an error instead of returning a value.
+
+ * ```ts
+ * function createStore(): Store {
+ *   throw new Error('Please provide a store implementation');
+ * }
+ * ```
+ *
+ * An {@link InjectionToken} covers cases where a dependency
+ * type has no runtime representation, or if you want to customize
+ * the token or factory function.
  */
 export type ProviderToken<T> = InjectionToken<T> | ClassConstructor<T> | FunctionSignature<T>;
 
