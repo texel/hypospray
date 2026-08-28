@@ -14,6 +14,9 @@ export function createAsyncLocalStorageContextStrategy(): ContextStrategy {
   const storage = new AsyncLocalStorage<ResolutionContext | null>();
 
   return {
+    name: 'async-local-storage',
+    asyncAware: true,
+
     get: () => storage.getStore() ?? null,
     run: (context, fn) => storage.run(context, fn),
     enter: (context) => storage.enterWith(context),

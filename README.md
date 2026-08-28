@@ -80,6 +80,36 @@ mechanism, rather than hardcoding one:
 Only `context-async-hooks.ts` imports `node:`, and only the Node entry reaches
 it, so a browser bundle never pulls it in.
 
+### Asynchrony without an async-aware strategy
+
+No platform mechanism carries an injection context across an `await` in a
+browser today: [AsyncContext](https://github.com/tc39/proposal-async-context) is
+at Stage 2 and stalled on implementation concerns. The obvious shortcut —
+holding the context open until the returned promise settles — is worse than
+failing, because two overlapping flows then hand each other the wrong injector
+silently. So the synchronous strategy fails closed and `NoInjectorError`
+explains itself in place.
+
+Put the asynchrony in the values instead. A default parameter is evaluated when
+the function is called, before its body runs, so `inject()` has always finished
+before the function reaches its first `await`:
+
+```ts
+const getBaseUrl = () => 'https://api.example.com';
+
+const loadConfig = async (baseUrl = inject(getBaseUrl)) => fetchConfig(baseUrl);
+
+// `config` is a Promise: injected synchronously, awaited at the use site.
+const loadUser = async (config = inject(loadConfig)) => {
+  const { apiUrl } = await config;
+  return fetchUser(apiUrl);
+};
+```
+
+Memoisation then doubles as a request cache — concurrent consumers of
+`loadConfig` share one in-flight promise. See
+[`async.spec.ts`](./packages/core/src/async.spec.ts).
+
 ## Editor setup
 
 Install the [Oxc extension](https://github.com/oxc-project/oxc-zed) for Zed

@@ -1,4 +1,4 @@
-import { enterContext, getContext } from './context.js';
+import { enterContext, getContext, getContextStrategy } from './context.js';
 import { CURRENT_INJECTOR } from './current-injector.js';
 import { NoInjectorError } from './errors.js';
 import type { InjectOptions, Injector } from './injector.js';
@@ -37,12 +37,41 @@ export function getCurrentInjector(options?: InjectOptions): Injector | null {
   const injector = getContext()?.injector ?? null;
 
   if (!injector && !options?.optional) {
-    throw new NoInjectorError(
-      'No injector is active. inject() must be called while an injector is resolving, or inside Injector.invoke().',
-    );
+    throw new NoInjectorError(noInjectorMessage());
   }
 
   return injector;
+}
+
+/**
+ * Explains a missing injection context.
+ *
+ * Two different mistakes produce this error and they need different advice:
+ * either no context was ever installed, or one was and the strategy could not
+ * follow it across an `await`. The two are indistinguishable from in here —
+ * all `getContext()` reports is an empty context — so the second explanation
+ * is offered only when the installed strategy admits it is possible.
+ */
+function noInjectorMessage(): string {
+  const strategy = getContextStrategy();
+
+  const base =
+    'inject() must be called from an injection context: while a provider is being resolved, or inside the function passed to Injector.invoke().';
+
+  if (strategy.asyncAware !== false) {
+    return base;
+  }
+
+  return [
+    base,
+    '',
+    `The installed context strategy (${strategy.name ?? 'unknown'}) does not carry an injection context across an \`await\`. It restores the previous context as soon as the function passed to invoke() returns — and an async function returns at its first \`await\`, not at its end. An inject() after an await is therefore outside the context, even though it sits inside invoke() lexically.`,
+    '',
+    'If that is what happened here:',
+    '  - Capture the injector before awaiting: `const injector = getCurrentInjector()`, then `injector.get(token)` after.',
+    '  - Or inject a promise rather than a value and await it at the use site, so every inject() runs before the first suspension.',
+    '  - Or install an async-aware strategy. Importing from the package `node` export condition does this, and is the only one shipped today.',
+  ].join('\n');
 }
 
 /**

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ContextStrategy } from './index.js';
 import {
+  NoInjectorError,
   createInjector,
   createSyncContextStrategy,
   getContextStrategy,
@@ -49,6 +50,62 @@ describe('the default context strategy', () => {
     });
 
     expect(seen).toBeNull();
+  });
+});
+
+describe('diagnosing a lost context', () => {
+  /** Runs `fn` past a suspension point and hands back whatever it threw. */
+  const catchAfterAwait = async (strategy: ContextStrategy): Promise<Error> => {
+    setContextStrategy(strategy);
+    const getTheme = () => 'system';
+
+    const error = await createInjector().invoke(async () => {
+      await Promise.resolve();
+      try {
+        inject(getTheme);
+      } catch (thrown) {
+        return thrown as Error;
+      }
+      return null;
+    });
+
+    expect(error).toBeInstanceOf(NoInjectorError);
+    return error as Error;
+  };
+
+  // "call it inside Injector.invoke()" is the one piece of advice that does not
+  // apply here — the call *was* inside invoke(), just past an await.
+  it('explains that a non-async-aware strategy cannot cross an await', async () => {
+    const message = (await catchAfterAwait(createSyncContextStrategy())).message;
+
+    expect(message).toContain('await');
+    expect(message).toContain('sync');
+    expect(message).toContain('getCurrentInjector()');
+    expect(message).toContain('node');
+  });
+
+  it('names the installed strategy', async () => {
+    const strategy: ContextStrategy = { ...createSyncContextStrategy(), name: 'my-adapter' };
+
+    expect((await catchAfterAwait(strategy)).message).toContain('my-adapter');
+  });
+
+  // The guidance would be a red herring for a strategy that does carry context
+  // across awaits: there, a missing injector means invoke() really was skipped.
+  it('withholds the await guidance from an async-aware strategy', async () => {
+    const strategy: ContextStrategy = { ...createSyncContextStrategy(), asyncAware: true };
+
+    const message = (await catchAfterAwait(strategy)).message;
+
+    expect(message).toContain('injection context');
+    expect(message).not.toContain('await');
+  });
+
+  it('says nothing about awaits when a strategy declines to answer', async () => {
+    const { get, run, enter } = createSyncContextStrategy();
+    const strategy: ContextStrategy = { get, run, enter };
+
+    expect((await catchAfterAwait(strategy)).message).not.toContain('await');
   });
 });
 

@@ -2,6 +2,7 @@ import { getContext, runInContext } from './context.js';
 import { CURRENT_INJECTOR } from './current-injector.js';
 import { debugToken, debugTokens, debugTokensHierarchically } from './debug.js';
 import { CircularDependencyError, NoProviderError } from './errors.js';
+import { isThenable } from './helpers.js';
 import {
   isExtendDeclaration,
   isProviderDeclaration,
@@ -163,6 +164,19 @@ export class Injector {
       }
 
       const value = runInContext({ injector: this, stack }, provider);
+
+      // A memoised promise is handed to every later consumer, and any of them
+      // may await it a turn or more after it settles. Node treats a rejection
+      // with no handler attached as fatal, so claim it here — consumers
+      // awaiting the promise still see the rejection exactly as before.
+      if (isThenable(value)) {
+        value.catch((error: unknown) => {
+          if (this.debug) {
+            this.logger.debug(`Injector: ${debugToken(key)} rejected: ${String(error)}`);
+          }
+        });
+      }
+
       this.values.set(key, value);
 
       return value as T;

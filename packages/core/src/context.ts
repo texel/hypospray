@@ -28,6 +28,20 @@ export interface ResolutionContext {
  * defines the shape and lets the environment supply the mechanism.
  */
 export interface ContextStrategy {
+  /** Identifies the strategy in diagnostics. */
+  readonly name?: string;
+
+  /**
+   * Whether this strategy can follow a flow across an `await`.
+   *
+   * Diagnostics read this when explaining a missing injection context: under a
+   * strategy that says `false`, an `inject()` after a suspension point is the
+   * likely cause and worth spelling out. Leave it unset if the answer is
+   * genuinely unknown — that guidance is only offered when a strategy states
+   * `false` outright, never on a guess.
+   */
+  readonly asyncAware?: boolean;
+
   /** The context for the current flow, or `null` outside any. */
   get(): ResolutionContext | null;
 
@@ -56,6 +70,9 @@ export function createSyncContextStrategy(): ContextStrategy {
   let current: ResolutionContext | null = null;
 
   return {
+    name: 'sync',
+    asyncAware: false,
+
     get: () => current,
 
     run(context, fn) {
