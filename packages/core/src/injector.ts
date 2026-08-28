@@ -1,11 +1,13 @@
 import { getContext, runInContext } from './context.js';
 import { CURRENT_INJECTOR } from './current-injector.js';
 import { debugToken, debugTokens, debugTokensHierarchically } from './debug.js';
-import { CircularDependencyError, NoProviderError } from './errors.js';
+import { CircularDependencyError } from './errors.js';
 import { isThenable } from './helpers.js';
 import {
+  ensureProvider,
   isExtendDeclaration,
   isProviderDeclaration,
+  noProviderError,
   toProvider,
   type Provider,
   type ProviderArray,
@@ -33,6 +35,10 @@ export type ChildInjectorOptions = Omit<InjectorOptions, 'parent'>;
 type AnyToken = ProviderToken<unknown>;
 
 export class Injector {
+  // Both maps are heterogeneous, which TypeScript cannot express. Reads go
+  // through `getProvider` and `getValue`, the only two type assertions in the
+  // library; see the SAFETY comments there for the invariant each depends on.
+  // Everywhere else, `pnpm lint:types` must stay silent.
   private readonly providers = new Map<AnyToken, Provider<unknown>>();
 
   private readonly values = new Map<AnyToken, unknown>();
@@ -47,6 +53,12 @@ export class Injector {
     this.parent = options.parent ?? null;
     this.logger = options.logger ?? console;
     this.debug = options.debug ?? false;
+
+    // Every injector answers CURRENT_INJECTOR with itself. Registering that as
+    // an ordinary provider means `get` needs no special case: owner-resolution
+    // already picks the nearest injector, which is always the right answer,
+    // and memoising `this` in this injector cannot go stale.
+    this.providers.set(CURRENT_INJECTOR, () => this);
 
     if (options.providers) {
       this.addProviders(...options.providers);
@@ -80,12 +92,6 @@ export class Injector {
   get<T>(token: ProviderToken<T>, options: InjectOptions & { optional: true }): T | undefined;
   get<T>(token: ProviderToken<T>, options?: InjectOptions): T;
   get<T>(token: ProviderToken<T>, options?: InjectOptions): T | undefined {
-    // We can short-circuit requests for the current injector because
-    // hey buddy, we're it.
-    if (token === CURRENT_INJECTOR) {
-      return this as unknown as T;
-    }
-
     // Join the caller's resolution if there is one, so cycle detection spans
     // nested injectors; otherwise start a fresh stack for this flow.
     const stack = getContext()?.stack ?? [];
@@ -119,19 +125,54 @@ export class Injector {
     return this.parent?.rootInjector() ?? this;
   }
 
+  /** The provider registered here for `token`, if any. */
+  private getProvider<T>(token: ProviderToken<T>): Provider<T> | null {
+    // SAFETY: `providers` is heterogeneous — a `ProviderToken<T>` key leads to
+    // a `Provider<T>` value — and TypeScript cannot tie a Map's value type to
+    // its key's type parameter. The correspondence is an invariant we maintain,
+    // not one the compiler checks.
+    //
+    // Upheld because the map is private, is never handed out, and every writer
+    // pairs the two types at the point of the write:
+    //   - the constructor stores `() => this` under CURRENT_INJECTOR, whose
+    //     token type is `Injector`;
+    //   - `resolve` stores what `toProvider(token)` returned, under `token`;
+    //   - `addProviderFromDeclaration` stores `declaration.provider` under
+    //     `declaration.token`, which `ProviderDeclaration<T>` binds together,
+    //     or its extend closure, which returns `ExtendFn<T>`'s `T`.
+    //
+    // A new writer has to keep that pairing or this read becomes unsound.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return (this.providers.get(token) as Provider<T>) ?? null;
+  }
+
+  /**
+   * The memoised value for `token`. Call only when `values.has(token)` — a
+   * token may legitimately resolve to `undefined`, so absence and a stored
+   * `undefined` cannot be told apart from the return value.
+   */
+  private getValue<T>(token: ProviderToken<T>): T {
+    // SAFETY: the same heterogeneous-map invariant as {@link getProvider}, with
+    // one writer upholding it. `resolve` stores the value it has just obtained
+    // by calling that token's own `Provider<T>`, keyed by that same token, and
+    // nothing else writes to `values`. The map is private and never escapes.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return this.values.get(token) as T;
+  }
+
   /**
    * Resolves `token` in this injector, which by now is known to be the one
-   * that owns it. Memoised here, so a value has exactly one home.
+   * that owns it. The result is memoized, and will be reused for future lookups.
    */
   private resolve<T>(
     token: ProviderToken<T>,
     options: InjectOptions | undefined,
     stack: Array<AnyToken>,
   ): T | undefined {
-    const key = token as AnyToken;
+    const key: AnyToken = token;
 
     if (this.values.has(key)) {
-      return this.values.get(key) as T;
+      return this.getValue(token);
     }
 
     if (stack.includes(key)) {
@@ -140,23 +181,19 @@ export class Injector {
       );
     }
 
-    let provider = this.providers.get(key);
+    let provider = this.getProvider(token);
 
     if (!provider) {
-      try {
-        provider = toProvider(token, this.logger);
-      } catch (error) {
-        if (error instanceof NoProviderError) {
-          // Nothing is recorded for a miss, so an optional lookup cannot
-          // satisfy a later required one.
-          if (options?.optional) {
-            return undefined;
-          }
+      provider = toProvider(token, this.logger);
 
-          throw new NoProviderError(`No provider found for ${debugToken(key)}`);
+      if (!provider) {
+        // Nothing is recorded for a miss, so an optional lookup cannot satisfy
+        // a later required one.
+        if (options?.optional) {
+          return undefined;
         }
 
-        throw error;
+        throw noProviderError(token);
       }
 
       this.providers.set(key, provider);
@@ -186,7 +223,7 @@ export class Injector {
 
       this.values.set(key, value);
 
-      return value as T;
+      return value;
     } finally {
       // Always unwind, so a throw leaves nothing behind for the next caller.
       stack.pop();
@@ -200,8 +237,7 @@ export class Injector {
       return entry;
     }
 
-    const token = entry as ProviderToken<T>;
-    return { token, provider: toProvider(token, this.logger) as Provider<T> };
+    return { token: entry, provider: ensureProvider(entry, this.logger) };
   }
 
   private addProviderFromDeclaration<T>(declaration: ProviderDeclaration<T>): void {
@@ -214,7 +250,7 @@ export class Injector {
       const previous = this.inheritedProvider(declaration.token);
       this.providers.set(key, () => extend(previous()));
     } else {
-      this.providers.set(key, declaration.provider as Provider<unknown>);
+      this.providers.set(key, declaration.provider);
     }
   }
 
@@ -226,16 +262,11 @@ export class Injector {
    * the parent's registration.
    */
   private inheritedProvider<T>(token: ProviderToken<T>): Provider<T> {
-    const own = this.providers.get(token);
-    if (own) {
-      return own as Provider<T>;
-    }
-
-    if (this.parent) {
-      return this.parent.inheritedProvider(token);
-    }
-
-    return toProvider(token, this.logger) as Provider<T>;
+    return (
+      this.getProvider(token) ??
+      this.parent?.inheritedProvider(token) ??
+      ensureProvider(token, this.logger)
+    );
   }
 }
 

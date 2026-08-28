@@ -1,6 +1,6 @@
 import { debugToken, warnIfNoDefaultArgs } from './debug.js';
 import { NoProviderError } from './errors.js';
-import { isClass, type FunctionSignature } from './helpers.js';
+import { isClass } from './helpers.js';
 import { inject } from './inject.js';
 import type { Logger } from './injector.js';
 import { InjectionToken, type ProviderToken } from './tokens.js';
@@ -83,7 +83,7 @@ function toValueProvider<T>(
     // provided values like any other.
     if ('value' in given) {
       const { value } = given;
-      return () => value as T;
+      return () => value;
     }
 
     if (given.existing) {
@@ -94,7 +94,7 @@ function toValueProvider<T>(
     }
   }
 
-  return toProvider(token) as Provider<T>;
+  return ensureProvider(token);
 }
 
 /**
@@ -151,12 +151,15 @@ export function extendProvider<T>(
 }
 
 /**
- * Synthesises a provider for a token that has to satisfy itself: an
- * {@link InjectionToken} with a factory, a class, or a plain function.
+ * The provider a token supplies for itself — an {@link InjectionToken} with a
+ * factory, a class, or a plain function — or `null` if it has none.
+ *
+ * Returns `null` rather than throwing so an optional resolution can check
+ * without catching.
  */
-export function toProvider(t: unknown, logger: Logger = console): Provider<unknown> {
-  if (t instanceof InjectionToken && t.factory) {
-    return t.factory;
+export function toProvider<T>(t: ProviderToken<T>, logger: Logger = console): Provider<T> | null {
+  if (t instanceof InjectionToken) {
+    return t.factory ?? null;
   }
 
   // The arity check belongs here and nowhere else: this is the only point at
@@ -168,12 +171,35 @@ export function toProvider(t: unknown, logger: Logger = console): Provider<unkno
   }
 
   if (typeof t === 'function') {
-    warnIfNoDefaultArgs(t as FunctionSignature<unknown>, logger);
-    return t as Provider<unknown>;
+    warnIfNoDefaultArgs(t, logger);
+    return t;
   }
 
-  throw new NoProviderError(
-    `Unsupported type, unable to create a provider: ${debugToken(t as ProviderToken<unknown>)}`,
+  // Unreachable for a well-typed caller; reachable from JavaScript, or through
+  // the `as never` casts that tests use to reach the arity warning.
+  return null;
+}
+
+/** As {@link toProvider}, but throws when the token cannot provide itself. */
+export function ensureProvider<T>(t: ProviderToken<T>, logger: Logger = console): Provider<T> {
+  const provider = toProvider(t, logger);
+
+  if (!provider) {
+    throw noProviderError(t);
+  }
+
+  return provider;
+}
+
+/**
+ * The single place the "cannot be provided" wording lives, so a caller that has
+ * already found the miss does not have to invent its own.
+ */
+export function noProviderError(t: ProviderToken<unknown>): NoProviderError {
+  return new NoProviderError(
+    t instanceof InjectionToken
+      ? `No provider found for ${debugToken(t)}`
+      : `Unsupported type, unable to create a provider: ${debugToken(t)}`,
   );
 }
 

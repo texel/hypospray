@@ -162,3 +162,24 @@ specific to this library:
   between them.
 - `vitest/require-mock-type-parameters` wants an explicit type argument on every
   `vi.fn()`, which TypeScript already infers from the implementation passed in.
+- `typescript/no-unsafe-type-assertion` and `typescript/unbound-method` (specs
+  only). Tests defeat the type system deliberately — `Database as never` exists
+  precisely to reach a runtime guard the types would otherwise prevent.
+
+## Type assertions
+
+`pnpm lint:types` runs oxlint's type-aware rules and is part of `pnpm check`. It
+must stay silent: a type assertion in `packages/` is a bug until proven
+otherwise.
+
+Two are proven otherwise, both in `Injector`, because its maps are
+heterogeneous — a `ProviderToken<T>` key leads to a `Provider<T>` or a `T` — and
+TypeScript cannot tie a Map's value type to its key's type parameter. There is
+no way to make those reads safe, so they are contained instead: both live in a
+one-line private accessor (`getProvider`, `getValue`) and nowhere else.
+
+Each is suppressed at the line rather than by switching the rule off, so a new
+unsafe assertion still fails the build, and each carries a **`SAFETY:` comment**
+in the Rust sense — what the compiler cannot check, and what we do instead to
+keep it true. Any future suppression follows the same rule: name the invariant
+and name what upholds it, or don't suppress it.

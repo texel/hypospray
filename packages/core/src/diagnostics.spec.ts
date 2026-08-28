@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 
 describe('missing-argument warnings', () => {
-  it('warns when a synthesised class provider needs constructor arguments', () => {
+  it('warns when a class that provides itself needs constructor arguments', () => {
     class Database {
       url: string;
 
@@ -33,7 +33,7 @@ describe('missing-argument warnings', () => {
     expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Database'));
   });
 
-  it('warns when a synthesised function provider needs arguments', () => {
+  it('warns when a function that provides itself needs arguments', () => {
     const createRequestLogger = (level: string) => ({ level });
 
     createInjector({ logger }).get(createRequestLogger as never);
@@ -82,7 +82,7 @@ describe('missing-argument warnings', () => {
   });
 
   // a user-supplied factory's arity is its own business — only
-  // providers hypospray synthesises can be missing injected arguments.
+  // a provider built from the token itself can be missing injected arguments.
   it('stays quiet for a user-supplied factory', { tags: ['regression'] }, () => {
     const createMailer = () => ({ retries: 0 });
     const factory = (retries?: number) => ({ retries: retries ?? 3 });

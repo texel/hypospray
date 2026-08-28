@@ -22,7 +22,7 @@ export function inject<T>(
 ): T | undefined;
 export function inject<T>(token: ProviderToken<T>, options?: InjectOptions): T;
 export function inject<T>(token: ProviderToken<T>, options?: InjectOptions): T | undefined {
-  return getCurrentInjector().get(token, options as InjectOptions);
+  return getCurrentInjector().get(token, options);
 }
 
 /**

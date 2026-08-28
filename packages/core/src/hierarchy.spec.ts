@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createInjector, extendProvider, inject, provide, provideValue } from './index.js';
+import {
+  CURRENT_INJECTOR,
+  createInjector,
+  extendProvider,
+  inject,
+  provide,
+  provideValue,
+} from './index.js';
 
 describe('hierarchical injectors', () => {
   it('resolves a parent-provided value from a child', () => {
@@ -97,6 +104,20 @@ describe('hierarchical injectors', () => {
 
     expect(repository.url).toBe('postgres://primary');
     expect(repository).toBe(parent.get(Repository));
+  });
+
+  // Every injector registers its own provider for CURRENT_INJECTOR, so the
+  // ordinary owner-resolution rule applies to it too: a provider owned by the
+  // parent sees the parent, not whichever child asked.
+  it('answers CURRENT_INJECTOR with the injector that owns the provider', () => {
+    const createProbe = (injector = inject(CURRENT_INJECTOR)) => injector;
+
+    const parent = createInjector({ providers: [createProbe] });
+    const child = parent.createChild();
+
+    expect(child.get(createProbe)).toBe(parent);
+    expect(child.get(CURRENT_INJECTOR)).toBe(child);
+    expect(parent.get(CURRENT_INJECTOR)).toBe(parent);
   });
 
   it('resolves implicit tokens once, at the root', () => {

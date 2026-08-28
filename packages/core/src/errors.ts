@@ -1,5 +1,5 @@
 /**
- * Thrown when a token has no provider and no way to synthesise one.
+ * Thrown when a token has no registered provider and no way to provide itself.
  */
 export class NoProviderError extends Error {
   override readonly name = 'NoProviderError';
