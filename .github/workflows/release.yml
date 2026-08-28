@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+# Never cancel a release mid-flight.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Open version PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@v4
+
+      - run: pnpm install --frozen-lockfile
+
+      # Collects pending changesets into a "Version Packages" PR: bumped
+      # versions plus generated changelogs. Merging that PR is the act that
+      # says "release this". No changesets pending means no PR is opened.
+      #
+      # Publishing is deliberately not wired up yet. @hypospray/core has never
+      # been published, and npm trusted publishing can only be configured on an
+      # existing package — so the first publish is manual (see
+      # .changeset/README.md). Afterwards, add a `publish: pnpm release` input
+      # below along with `id-token: write` permission for provenance.
+      - uses: changesets/action@v2
+        with:
+          # id-token: write
+          # publish: pnpm release
+          version: pnpm version:packages
+          title: 'Version packages'
+          commit: 'Version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -15,9 +15,13 @@
     "test:regression": "vitest run --tagsFilter regression",
     "typecheck": "pnpm -r run typecheck",
     "clean": "pnpm -r exec rm -rf dist *.tsbuildinfo",
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test"
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test",
+    "changeset": "changeset",
+    "version:packages": "changeset version",
+    "release": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.1",
     "@types/node": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
