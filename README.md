@@ -33,6 +33,9 @@ Run from the repo root; each also works inside an individual package.
 | `pnpm check`        | format:check → lint → typecheck → test                   |
 | `pnpm clean`        | Remove build output                                      |
 
+CI runs the same four steps as `pnpm check` on every pull request and on
+pushes to `main` — see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
+
 oxlint and oxfmt are single binaries that walk the whole repo, so they run
 from the root only — packages don't carry their own lint or format scripts.
 Both respect `.gitignore`.
