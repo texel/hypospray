@@ -2,16 +2,30 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   CURRENT_INJECTOR,
+  Injector,
   NoInjectorError,
   NoProviderError,
   createInjector,
+  createSyncContextStrategy,
   createToken,
   getCurrentInjector,
   inject,
   provide,
   provideValue,
-  setCurrentInjector,
 } from './index.js';
+
+describe('configuration', () => {
+  it('rejects a process-wide context strategy on a child injector', () => {
+    const parent = createInjector();
+    const createInvalidChild = (): Injector =>
+      // @ts-expect-error A child injector cannot configure the context strategy.
+      new Injector({ parent, context: createSyncContextStrategy() });
+
+    expect(createInvalidChild).toThrowError(
+      'A child injector cannot configure the process-wide context strategy.',
+    );
+  });
+});
 
 describe('resolution', () => {
   it('resolves a plain function', () => {
@@ -183,7 +197,6 @@ describe('declaring dependencies', () => {
 
 describe('ambient injector', () => {
   it('throws when injecting with no ambient injector', () => {
-    setCurrentInjector(null);
     const createMailer = () => ({ send: () => 'sent' });
 
     expect(() => inject(createMailer)).toThrow(NoInjectorError);
@@ -197,7 +210,6 @@ describe('ambient injector', () => {
   });
 
   it('restores the previous ambient injector after run', () => {
-    setCurrentInjector(null);
     const injector = createInjector();
 
     const seen = injector.run(() => getCurrentInjector());
@@ -221,7 +233,6 @@ describe('ambient injector', () => {
   // run() set the ambient injector, called fn, then restored it
   // with no try/finally, so a throwing factory leaked it process-wide.
   it('restores the ambient injector when a factory throws', { tags: ['regression'] }, () => {
-    setCurrentInjector(null);
     const connectToDatabase = (): { query: () => unknown[] } => {
       throw new Error('connection refused');
     };

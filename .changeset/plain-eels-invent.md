@@ -10,6 +10,9 @@ outrank it. The package is now `sideEffects: false`.
 
 The sync context strategy detects interleaved flows. When a `run()` is handed
 an async function and another injector starts a flow before it settles, it
-throws `ConcurrentContextError` instead of silently resolving from whichever
-injector is ambient. `createSyncContextStrategy({ strict: false })` restores
-the previous behaviour.
+throws `ConcurrentContextError` instead of allowing an overlap it cannot keep
+context for. `createSyncContextStrategy({ strict: false })` preserves the
+previous permissive behaviour.
+
+Context strategies now expose only scoped `run()` operations. The unscoped
+`enter()` strategy method and `setCurrentInjector()` helper have been removed.

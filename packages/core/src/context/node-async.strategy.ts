@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-import type { ContextStrategy, ResolutionContext } from './context.js';
+import type { ResolutionContext } from '../context.js';
+import type { ContextStrategy } from './strategy.js';
 
 /**
  * Carries context across `await` boundaries, so concurrent flows on one
@@ -19,6 +20,5 @@ export function createAsyncLocalStorageContextStrategy(): ContextStrategy {
 
     get: () => storage.getStore() ?? null,
     run: (context, fn) => storage.run(context, fn),
-    enter: (context) => storage.enterWith(context),
   };
 }

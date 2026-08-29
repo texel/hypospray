@@ -38,10 +38,8 @@ describe('the default context strategy', () => {
     expect(getCurrentInjector({ optional: true })).toBeNull();
   });
 
-  // The synchronous strategy cannot follow a flow across an await. It fails
-  // closed — the context is already restored — rather than handing back
-  // whatever injector happens to be ambient. Servers get the async-aware
-  // strategy via the `node` export condition instead.
+  // The synchronous strategy cannot follow a flow across an await.
+  // After the await point, the context will be null and there will be no current injector.
   it('does not carry context across an await', async () => {
     const injector = createInjector();
 
@@ -74,8 +72,6 @@ describe('diagnosing a lost context', () => {
     return error as Error;
   };
 
-  // Naming run() as the fix is the one thing that cannot help here: the call
-  // already was inside run(), just past an await.
   it('explains that a non-async-aware strategy cannot cross an await', async () => {
     const message = (await catchAfterAwait(createSyncContextStrategy())).message;
 
@@ -91,8 +87,9 @@ describe('diagnosing a lost context', () => {
     expect((await catchAfterAwait(strategy)).message).toContain('my-adapter');
   });
 
-  // The guidance would be a red herring for a strategy that does carry context
-  // across awaits: there, a missing injector means run() really was skipped.
+  // In an async-aware strategy, something other than crossing the await point
+  // must have caused the context to be lost. We don't want to be so "helpful"
+  // that we end up misleading users.
   it('withholds the await guidance from an async-aware strategy', async () => {
     const strategy: ContextStrategy = {
       ...createSyncContextStrategy(),
@@ -105,9 +102,9 @@ describe('diagnosing a lost context', () => {
     expect(message).not.toContain('await');
   });
 
-  it('says nothing about awaits when a strategy declines to answer', async () => {
-    const { get, run, enter } = createSyncContextStrategy();
-    const strategy: ContextStrategy = { get, run, enter };
+  it('says nothing about awaits when a strategy does not specify whether it preserves async context', async () => {
+    const { get, run } = createSyncContextStrategy();
+    const strategy: ContextStrategy = { get, run };
 
     expect((await catchAfterAwait(strategy)).message).not.toContain('await');
   });
@@ -119,7 +116,6 @@ describe('replacing the context strategy', () => {
     const strategy: ContextStrategy = {
       get: vi.fn(() => inner.get()),
       run: vi.fn((context, fn) => inner.run(context, fn)),
-      enter: vi.fn((context) => inner.enter(context)),
     };
 
     setContextStrategy(strategy);
@@ -145,13 +141,13 @@ describe('interleaving under the sync strategy', () => {
   /** Yields to the microtask queue so two flows can overlap. */
   const tick = (): Promise<void> => Promise.resolve();
 
-  it('throws when a second injector runs while another flow is suspended', async () => {
+  it('throws when a second injector runs while an earlier async run is pending', async () => {
     const root = createInjector();
     const a = root.createChild();
     const b = root.createChild();
 
-    // `a` suspends at its first await, leaving its flow open. Starting `b`
-    // while that is pending is the interleave the sync strategy cannot serve.
+    // Keep `a` pending while `b` starts, so both injectors have active runs at
+    // the same time.
     const pending = a.run(async () => {
       await tick();
     });
@@ -196,7 +192,7 @@ describe('interleaving under the sync strategy', () => {
     }).not.toThrow();
   });
 
-  it('restores last-writer-wins when strict is off', async () => {
+  it('allows overlapping runs when strict is off', async () => {
     setContextStrategy(createSyncContextStrategy({ strict: false }));
 
     const root = createInjector();

@@ -1,32 +1,28 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  createInjector,
-  createSyncContextStrategy,
-  getContextStrategy,
-  nodeContextStrategy,
-  setContextStrategy,
-} from './index.node.js';
-
-// These assertions are about module-level state, so they depend on running in
-// declaration order within this file: the first one must observe the strategy
-// before anything in the suite has created an injector. Vitest runs tests in
-// declaration order, and each file gets a fresh module registry.
 describe('the node entry point', () => {
-  it('installs nothing merely by being imported', () => {
-    // The import above is the whole setup. If loading the module had a side
-    // effect, the strategy would already be AsyncLocalStorage-backed.
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('installs nothing merely by being imported', async () => {
+    const { getContextStrategy } = await import('./index.node.js');
+
     expect(getContextStrategy().name).toBe('sync');
   });
 
-  it('installs the AsyncLocalStorage strategy when an injector is created', () => {
+  it('installs the AsyncLocalStorage strategy when an injector is created', async () => {
+    const { createInjector, getContextStrategy, nodeContextStrategy } =
+      await import('./index.node.js');
+
     createInjector();
 
     expect(getContextStrategy()).toBe(nodeContextStrategy());
     expect(getContextStrategy().name).toBe('async-local-storage');
   });
 
-  it('reuses one store across injectors', () => {
+  it('reuses one store across injectors', async () => {
+    const { createInjector, nodeContextStrategy } = await import('./index.node.js');
     const first = nodeContextStrategy();
 
     createInjector();
@@ -35,7 +31,9 @@ describe('the node entry point', () => {
     expect(nodeContextStrategy()).toBe(first);
   });
 
-  it('does not override a strategy chosen explicitly', () => {
+  it('does not override a strategy chosen explicitly', async () => {
+    const { createInjector, createSyncContextStrategy, getContextStrategy, setContextStrategy } =
+      await import('./index.node.js');
     const chosen = createSyncContextStrategy();
     setContextStrategy(chosen);
 
@@ -44,7 +42,9 @@ describe('the node entry point', () => {
     expect(getContextStrategy()).toBe(chosen);
   });
 
-  it('lets an injector option choose the strategy', () => {
+  it('lets an injector option choose the strategy', async () => {
+    const { createInjector, createSyncContextStrategy, getContextStrategy } =
+      await import('./index.node.js');
     const chosen = createSyncContextStrategy();
 
     createInjector({ context: chosen });

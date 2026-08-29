@@ -1,4 +1,5 @@
-import { createAsyncLocalStorageContextStrategy } from './context-async-hooks.js';
+import { setFallbackContextStrategy } from './context.js';
+import { createAsyncLocalStorageContextStrategy } from './context/node-async.strategy.js';
 /**
  * Node entry point, selected by the `node` export condition.
  *
@@ -12,17 +13,16 @@ import { createAsyncLocalStorageContextStrategy } from './context-async-hooks.js
  * default rides along with the call every application already makes.
  * `setContextStrategy` and `createInjector({ context })` both outrank it.
  */
-import type { ContextStrategy } from './context.js';
-import { setDefaultContextStrategy } from './context.js';
+import type { ContextStrategy } from './context/strategy.js';
 import { Injector, createInjector as createBaseInjector } from './injector.js';
 import type { InjectorOptions } from './injector.js';
 
 let strategy: ContextStrategy | undefined;
 
 /**
- * The AsyncLocalStorage strategy this entry point installs, created once.
+ * Returns a memoized instance of the AsyncLocalStorage context strategy.
  *
- * One store per process: a second AsyncLocalStorage would not see contexts
+ * A second AsyncLocalStorage would not see contexts
  * entered through the first, so repeated `createInjector` calls must share it.
  */
 export function nodeContextStrategy(): ContextStrategy {
@@ -32,7 +32,7 @@ export function nodeContextStrategy(): ContextStrategy {
 
 /** Creates an injector, defaulting ambient context to AsyncLocalStorage. */
 export function createInjector(options?: InjectorOptions): Injector {
-  setDefaultContextStrategy(nodeContextStrategy());
+  setFallbackContextStrategy(nodeContextStrategy());
   return createBaseInjector(options);
 }
 

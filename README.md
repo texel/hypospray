@@ -106,23 +106,18 @@ Outside both, `inject()` throws `NoInjectorError` rather than guessing. The
 message distinguishes the two ways to get there — never having entered a
 context, and leaving one by suspending — because the fix differs.
 
-`setCurrentInjector()` enters a context without a matching exit. It exists for
-tests and for framework adapters that own their own context lifetime; prefer
-`Injector.run()` everywhere else.
-
 ## Runtime context
 
-Carrying an injection context needs somewhere to keep "the injector for this
-flow". Core defines that as a `ContextStrategy` and lets the runtime supply the
-mechanism, rather than hardcoding one:
+Carrying an injection context needs somewhere to keep the injector for the
+current execution. Core defines that as a `ContextStrategy` and lets the
+runtime supply the mechanism rather than hardcoding one:
 
 - The **default entry** uses a synchronous strategy — a plain variable with
   `try`/`finally`. Correct in any runtime for synchronous resolution, which is
-  all of hypospray's own resolution. It cannot follow a flow across an
-  `await`, and fails closed rather than leaking another flow's injector.
-- The **`node` export condition** selects `index.node.js`, which installs an
-  `AsyncLocalStorage` strategy on import. Concurrent requests on one process
-  stay isolated, and `inject()` keeps working after an `await`.
+  all of hypospray's own resolution. It cannot carry context across an `await`.
+- The **`node` export condition** selects `index.node.js`, whose `createInjector`
+  defaults to an `AsyncLocalStorage` strategy. Concurrent requests on one
+  process stay isolated, and `inject()` keeps working after an `await`.
 - A **host with its own context mechanism** — React providers, Svelte's
   `setContext` — plugs it in with `setContextStrategy()`.
 

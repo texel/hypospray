@@ -1,10 +1,10 @@
-export {
-  createSyncContextStrategy,
-  getContextStrategy,
-  setContextStrategy,
-  setDefaultContextStrategy,
-} from './context.js';
-export type { ContextStrategy, ResolutionContext, SyncContextStrategyOptions } from './context.js';
+export { getContextStrategy, setContextStrategy } from './context.js';
+
+export { createSyncContextStrategy } from './context/sync.strategy.js';
+
+export type { ResolutionContext } from './context.js';
+export type { ContextStrategy } from './context/strategy.js';
+export type { SyncContextStrategyOptions } from './context/sync.strategy.js';
 
 export {
   CircularDependencyError,
@@ -37,4 +37,4 @@ export type {
 export { Injector, createInjector } from './injector.js';
 export type { ChildInjectorOptions, InjectorOptions, Logger, ResolveOptions } from './injector.js';
 
-export { CURRENT_INJECTOR, getCurrentInjector, inject, setCurrentInjector } from './inject.js';
+export { CURRENT_INJECTOR, getCurrentInjector, inject } from './inject.js';
