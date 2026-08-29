@@ -1,10 +1,31 @@
 {
   "name": "@hypospray/core",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Core dependency injection container for hypospray.",
+  "keywords": [
+    "container",
+    "dependency-injection",
+    "di",
+    "esm",
+    "injector",
+    "inversion-of-control",
+    "ioc",
+    "typescript"
+  ],
+  "homepage": "https://github.com/texel/hypospray#readme",
+  "bugs": "https://github.com/texel/hypospray/issues",
   "license": "MIT",
+  "author": "Leigh Caplan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/texel/hypospray.git",
+    "directory": "packages/core"
+  },
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "!src/**/*.spec.ts",
+    "!src/**/*.test.ts"
   ],
   "type": "module",
   "sideEffects": [
@@ -29,11 +50,15 @@
     },
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "pnpm run build:js && pnpm run build:types",
     "build:js": "vite build",
     "build:types": "tsc -p tsconfig.build.json",
     "dev": "vite build --watch",
+    "prepack": "pnpm run build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -42,5 +67,8 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
