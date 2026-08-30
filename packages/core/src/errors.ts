@@ -18,3 +18,11 @@ export class NoInjectorError extends Error {
 export class CircularDependencyError extends Error {
   override readonly name = 'CircularDependencyError';
 }
+
+/**
+ * Thrown when a context strategy that cannot isolate concurrent flows observes
+ * two of them overlapping.
+ */
+export class ConcurrentContextError extends Error {
+  override readonly name = 'ConcurrentContextError';
+}

@@ -7,7 +7,6 @@ import {
   createInjector,
   createToken,
   inject,
-  setCurrentInjector,
 } from './index.js';
 
 describe('NoProviderError', () => {
@@ -56,7 +55,6 @@ describe('NoProviderError', () => {
 
 describe('NoInjectorError', () => {
   it('is thrown when injecting outside an injector', () => {
-    setCurrentInjector(null);
     const createMailer = () => ({ send: () => 'sent' });
 
     expect(() => inject(createMailer)).toThrow(NoInjectorError);

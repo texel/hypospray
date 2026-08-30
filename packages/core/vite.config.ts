@@ -25,5 +25,6 @@ export default defineConfig({
     name: 'core',
     environment: 'node',
     include: ['src/**/*.{test,spec}.ts'],
+    tags: [{ name: 'regression', description: 'Regression tests' }],
   },
 });

@@ -6,7 +6,6 @@ import {
   getCurrentInjector,
   inject,
   provideValue,
-  setCurrentInjector,
 } from './index.node.js';
 
 // We're explicitly importing from the `node` entrypoint to test the
@@ -102,8 +101,6 @@ describe('interleaved resolution', () => {
   });
 
   it('restores ambient state when one of several concurrent flows rejects', async () => {
-    setCurrentInjector(null);
-
     const failing = createInjector();
     const succeeding = createInjector();
 

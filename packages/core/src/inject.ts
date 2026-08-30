@@ -1,4 +1,4 @@
-import { enterContext, getContext, getContextStrategy } from './context.js';
+import { getContext, getContextStrategy } from './context.js';
 import { CURRENT_INJECTOR } from './current-injector.js';
 import { NoInjectorError } from './errors.js';
 import type { Injector, ResolveOptions } from './injector.js';
@@ -67,13 +67,4 @@ function noInjectorMessage(): string {
     '  - Or inject a promise rather than a value and await it at the use site, so every inject() runs before the first suspension.',
     '  - Or install an async-aware strategy. Importing from the package `node` export condition does this, and is the only one shipped today.',
   ].join('\n');
-}
-
-/**
- * Sets the ambient injector for the rest of the current flow, with no matching
- * restore. Prefer `Injector.run()` — this exists for tests and for
- * framework adapters that own their own context lifetime.
- */
-export function setCurrentInjector(injector: Injector | null): void {
-  enterContext(injector ? { injector, stack: [] } : null);
 }

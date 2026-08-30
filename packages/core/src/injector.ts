@@ -1,4 +1,5 @@
-import { getContext, runInContext } from './context.js';
+import { getContext, runInContext, setContextStrategy } from './context.js';
+import type { ContextStrategy } from './context/strategy.js';
 import { CURRENT_INJECTOR } from './current-injector.js';
 import { debugToken, debugTokens, debugTokensHierarchically } from './debug.js';
 import { CircularDependencyError } from './errors.js';
@@ -21,8 +22,7 @@ export interface ResolveOptions {
   optional?: boolean;
 }
 
-export interface InjectorOptions {
-  parent?: Injector | null;
+export interface ChildInjectorOptions {
   providers?: ProviderList;
   /** Trace every resolution to the logger. Inherited by child injectors. */
   debug?: boolean;
@@ -30,7 +30,25 @@ export interface InjectorOptions {
   logger?: Logger;
 }
 
-export type ChildInjectorOptions = Omit<InjectorOptions, 'parent'>;
+export type InjectorOptions = ChildInjectorOptions &
+  (
+    | {
+        parent?: null;
+        /**
+         * Installs the mechanism that carries ambient context, as
+         * {@link setContextStrategy} would.
+         *
+         * Ambient context is process-wide — `inject()` takes no injector
+         * argument, so there is one place for it to look. It can therefore be
+         * configured only on a top-level injector.
+         */
+        context?: ContextStrategy;
+      }
+    | {
+        parent: Injector;
+        context?: never;
+      }
+  );
 
 type AnyToken = ProviderToken<unknown>;
 
@@ -50,6 +68,16 @@ export class Injector {
   private readonly debug: boolean;
 
   constructor(options: InjectorOptions = {}) {
+    if (options.parent && options.context) {
+      throw new TypeError('A child injector cannot configure the process-wide context strategy.');
+    }
+
+    // Before anything can resolve, so a strategy passed here governs this
+    // injector's own first run().
+    if (options.context) {
+      setContextStrategy(options.context);
+    }
+
     this.parent = options.parent ?? null;
     this.logger = options.logger ?? console;
     this.debug = options.debug ?? false;
@@ -83,7 +111,7 @@ export class Injector {
    * returns or throws.
    */
   run<T>(fn: () => T): T {
-    return runInContext({ injector: this, stack: [] }, fn);
+    return runInContext({ injector: this, stack: [], isInjectorRun: true }, fn);
   }
 
   /** Resolves and memoises the value associated with `token`. */
