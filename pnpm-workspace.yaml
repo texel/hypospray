@@ -1,5 +1,9 @@
 packages:
+  - docs
   - packages/*
+
+allowBuilds:
+  esbuild: true
 
 # Single source of truth for shared dependency versions.
 # Reference from a package.json as `"vite": "catalog:"`.

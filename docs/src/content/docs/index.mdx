@@ -1,0 +1,49 @@
+---
+title: hypospray
+description: Lightweight dependency injection for TypeScript, built around ordinary functions and classes.
+template: splash
+hero:
+  title: Painless dependency injection for TypeScript and JavaScript
+  tagline: Hypospray helps keep your TypeScript and JavaScript code testable, easy to understand, and easy to change.
+  actions:
+    - text: Get started
+      link: ./getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/texel/hypospray
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Easy to use" icon="seti:typescript">
+    No decorators or custom tokens necessary – use plain functions and classes.
+  </Card>
+  <Card title="Resolve once" icon="refresh">
+    Values are created on first use and memoized by the injector that owns their provider—including
+    in-flight promises.
+  </Card>
+  <Card title="Compose in layers" icon="puzzle">
+    Child injectors inherit from their parents, while provider extensions let each layer add
+    behavior without changing its ancestor.
+  </Card>
+</CardGrid>
+
+## Small enough to explain
+
+```ts
+import { createInjector, inject } from '@hypospray/core';
+
+const createClock = () => ({ now: () => Date.now() });
+
+const createGreeter = (clock = inject(createClock)) => ({
+  greet: (name: string) => `Hello, ${name}. It is ${clock.now()}.`,
+});
+
+const injector = createInjector();
+const greeter = injector.get(createGreeter);
+```
+
+No decorators. No reflection metadata. No framework required.
