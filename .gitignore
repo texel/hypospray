@@ -7,3 +7,7 @@ coverage/
 .pnpm-store/
 .DS_Store
 *.log
+
+# Design binaries (kept locally; the spec .md is the committed source of truth)
+specs/assets/**/*.pdf
+specs/assets/**/*.html

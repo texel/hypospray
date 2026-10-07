@@ -59,6 +59,9 @@ importers:
       '@astrojs/starlight':
         specifier: ^0.41.10
         version: 0.41.10(@astrojs/markdown-remark@7.2.4)(astro@7.2.9(@astrojs/markdown-remark@7.2.4)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(yaml@2.9.0))(typescript@6.0.3)
+      '@hypospray/core':
+        specifier: 'workspace:'
+        version: link:../packages/core
       astro:
         specifier: ^7.2.9
         version: 7.2.9(@astrojs/markdown-remark@7.2.4)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(yaml@2.9.0)
