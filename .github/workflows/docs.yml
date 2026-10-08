@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/docs.yml'
-      - 'docs/**'
+      - 'site/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -30,8 +30,8 @@ jobs:
         with:
           path: .
           package-manager: pnpm@11.24.0
-          build-cmd: pnpm --filter hypospray-docs build
-          out-dir: docs/dist
+          build-cmd: pnpm --filter "hypospray-site..." build
+          out-dir: site/dist
         env:
           SITE_URL: https://texel.github.io
           BASE_PATH: /hypospray

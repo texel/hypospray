@@ -23,21 +23,24 @@ export default defineConfig({
         },
       ],
       editLink: {
-        baseUrl: 'https://github.com/texel/hypospray/edit/main/docs/',
+        baseUrl: 'https://github.com/texel/hypospray/edit/main/site/',
       },
       customCss: ['./src/styles/custom.css'],
       sidebar: [
         {
           label: 'Start here',
-          items: [{ label: 'Getting started', slug: 'getting-started' }],
+          items: [
+            { label: 'Overview', slug: 'docs' },
+            { label: 'Getting started', slug: 'docs/getting-started' },
+          ],
         },
         {
           label: 'Core concepts',
-          items: [{ autogenerate: { directory: 'concepts' } }],
+          items: [{ autogenerate: { directory: 'docs/concepts' } }],
         },
         {
           label: 'Reference',
-          items: [{ autogenerate: { directory: 'reference' } }],
+          items: [{ autogenerate: { directory: 'docs/reference' } }],
         },
       ],
     }),
