@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" role="img" aria-labelledby="title">
-  <title id="title">hypospray</title>
-  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="6">
-    <path d="M8 40h32l11-18h23l9 9v18l-9 9H51L40 40" />
-    <path d="m83 36 18-8m-18 24 18 8" opacity=".65" />
-  </g>
-  <text x="122" y="53" fill="currentColor" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="39" font-weight="650" letter-spacing="-2">hypospray</text>
-</svg>

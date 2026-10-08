@@ -40,10 +40,6 @@ export default defineConfig({
       title: 'hypospray',
       description: 'A small dependency injection library for TypeScript.',
       favicon: '/favicon.svg',
-      logo: {
-        src: './src/assets/logo.svg',
-        replacesTitle: true,
-      },
       social: [
         {
           icon: 'github',
@@ -54,7 +50,14 @@ export default defineConfig({
       editLink: {
         baseUrl: 'https://github.com/texel/hypospray/edit/main/site/',
       },
-      customCss: ['./src/styles/custom.css'],
+      customCss: ['./src/styles/tokens.css', './src/styles/starlight.css'],
+      components: {
+        Head: './src/components/starlight/Head.astro',
+        Header: './src/components/starlight/Header.astro',
+        ThemeProvider: './src/components/starlight/ThemeProvider.astro',
+        ThemeSelect: './src/components/starlight/ThemeSelect.astro',
+        MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
+      },
       sidebar: [
         {
           label: 'Start here',
