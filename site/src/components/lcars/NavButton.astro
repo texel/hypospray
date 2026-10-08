@@ -1,0 +1,116 @@
+---
+interface Props {
+  href?: string;
+  action?: string;
+  hue: string;
+  label: string;
+  section?: string;
+  current?: 'page' | 'location';
+}
+const { href, action, hue, label, section, current } = Astro.props;
+---
+
+<div class="nav-item" style={`--hue: ${hue}`}>
+  {
+    action ? (
+      <button class="nav-btn" type="button" data-action={action}>
+        <span class="nav-label">{label}</span>
+      </button>
+    ) : (
+      <a class="nav-btn" href={href} data-nav-section={section} aria-current={current}>
+        <span class="nav-label">{label}</span>
+      </a>
+    )
+  }
+  <span class="seg" aria-hidden="true"></span>
+</div>
+
+<style>
+  .nav-item {
+    --grow: 0px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: var(--nav-w, 108px);
+    flex: none;
+  }
+  .nav-btn {
+    display: flex;
+    align-items: flex-start;
+    padding: 0;
+    border: 0;
+    cursor: pointer;
+    justify-content: flex-end;
+    height: calc(var(--hdr-bar) + var(--grow));
+    min-height: 24px;
+    background: var(--hue);
+    color: var(--bg);
+    text-decoration: none;
+    transition:
+      height var(--motion),
+      background-color var(--motion);
+    z-index: 1;
+  }
+  .nav-label {
+    display: flex;
+    align-items: flex-end;
+    height: var(--hdr-bar);
+    padding: 0 7px var(--hdr-label-pad);
+    font-family: var(--font-display);
+    font-size: 16px;
+    line-height: 21.5px;
+    letter-spacing: 0.08em;
+  }
+  .seg {
+    height: var(--hdr-butter);
+    margin-top: var(--hdr-gap);
+    margin-inline-end: -6px; /* bridge the 6px column gap so the butter bar reads as continuous */
+    background: var(--butter);
+    transition:
+      opacity var(--motion),
+      margin var(--motion);
+  }
+  /* A grown button sits over its own segment; the previous segment stops 6px short of it. */
+  .nav-item:has(> .nav-btn[aria-current]) {
+    --grow: calc(var(--hdr-gap) + var(--hdr-butter));
+  }
+  .nav-item:has(> .nav-btn[aria-current]) > .seg {
+    opacity: 0;
+  }
+  @media (hover: hover) {
+    .nav-item:has(> .nav-btn:hover):not(:has(> .nav-btn[aria-current])) {
+      --grow: calc((var(--hdr-gap) + var(--hdr-butter)) / 2);
+    }
+    .nav-item:has(> .nav-btn:hover) > .seg {
+      opacity: 0;
+    }
+    .nav-btn:hover {
+      background: color-mix(in oklab, var(--hue), var(--text) 15%);
+    }
+  }
+  .nav-btn:active {
+    background: color-mix(in oklab, var(--hue), var(--text) 25%);
+  }
+  .nav-btn:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nav-btn,
+    .seg {
+      transition: none;
+    }
+  }
+</style>
+
+<style is:global>
+  /* The segment before a grown item retracts its bridge, leaving the 6px break. */
+  .rail > :has(+ .nav-item > .nav-btn[aria-current]) > .seg {
+    margin-inline-end: 0;
+  }
+  @media (hover: hover) {
+    .rail > :has(+ .nav-item > .nav-btn:hover) > .seg {
+      margin-inline-end: 0;
+    }
+  }
+</style>

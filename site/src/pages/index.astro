@@ -1,9 +1,52 @@
 ---
-import { Code } from 'astro-expressive-code/components';
+import Header from '../components/lcars/Header.astro';
+import NavButton from '../components/lcars/NavButton.astro';
 import Landing from '../layouts/Landing.astro';
+import { withBase } from '../lib/url';
 ---
 
-<Landing title="Hypospray" description="EC check">
-  <h1 style="font-family: var(--font-display); color: var(--text)">EC CHECK</h1>
-  <Code code={"const x = new Thing('a'); // note\nfunction f(): Thing { return x; }\nconst g = () => 1;"} lang="ts" frame="none" />
+<Landing title="Hypospray" description="Header test">
+  <Header slot="header" homeHref="#">
+    <NavButton href="#why" section="why" hue="var(--why)" label="WHY" />
+    <NavButton href="#how" section="how" hue="var(--how)" label="HOW" />
+    <NavButton href="#code" section="code" hue="var(--code)" label="CODE" />
+    <NavButton href={withBase('/docs/')} hue="var(--docs)" label="DOCS" />
+  </Header>
+  <div class="hdr-spacer"><div data-header-sentinel></div></div>
+  <section id="hero" style="height: 80vh; color: var(--text)">HERO</section>
+  <section id="why" style="height: 120vh; color: var(--text)">WHY</section>
+  <section id="how" style="height: 120vh; color: var(--text)">HOW</section>
+  <section id="code" style="height: 120vh; color: var(--text)">CODE</section>
+  <footer style="height: 50vh"></footer>
 </Landing>
+
+<style is:global>
+  .hdr-spacer {
+    position: relative;
+    height: 186px;
+  }
+  [data-header-sentinel] {
+    position: absolute;
+    top: 24px;
+    height: 1px;
+    width: 1px;
+  }
+  @media (min-width: 600px) and (max-width: 1049.98px) {
+    .hdr-spacer {
+      height: 92px;
+    }
+  }
+  @media (max-width: 599.98px) {
+    .hdr-spacer {
+      height: 70px;
+    }
+  }
+  main section[id] {
+    scroll-margin-top: 86px;
+  }
+  @media (max-width: 599.98px) {
+    main section[id] {
+      scroll-margin-top: 46px;
+    }
+  }
+</style>

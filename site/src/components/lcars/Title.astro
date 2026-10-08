@@ -1,0 +1,35 @@
+---
+interface Props {
+  href: string;
+  label?: string;
+}
+const { href, label = 'Hypospray home' } = Astro.props;
+---
+
+<a class="title" href={href} aria-label={label}><span class="title-text" aria-hidden="true">HYPOSPRAY</span></a>
+
+<style>
+  /* Fits the capitals exactly to --cap (see the visual spec's "Title fit"). */
+  .title {
+    display: block;
+    height: var(--cap);
+    overflow: visible;
+    color: var(--butter);
+    text-decoration: none;
+  }
+  .title-text {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: calc(var(--cap) * 1.1636);
+    line-height: 1.2939;
+    letter-spacing: 0.0112em;
+    margin-top: calc(var(--cap) * -0.3438);
+    margin-left: calc(var(--cap) * -0.075);
+    white-space: nowrap;
+  }
+  .title:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+</style>

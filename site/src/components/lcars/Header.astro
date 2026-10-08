@@ -1,0 +1,314 @@
+---
+import Title from './Title.astro';
+
+interface Props {
+  homeHref: string;
+  static?: boolean;
+}
+const { homeHref, static: isStatic = false } = Astro.props;
+---
+
+<header
+  class="lcars-header"
+  data-lcars-header
+  data-static={isStatic ? '' : undefined}
+  data-compact={isStatic ? '' : undefined}
+>
+  <div class="desk">
+    <div class="corner corner-o" aria-hidden="true"></div>
+    <div class="corner corner-b" aria-hidden="true"></div>
+    <div class="lockup">
+      <Title href={homeHref} />
+      <nav class="rail" aria-label="Site">
+        <div class="rail-bar"><span class="top"></span><span class="seg"></span></div>
+        <slot />
+        <div class="rail-end"><span class="top"></span><span class="seg"></span></div>
+      </nav>
+    </div>
+  </div>
+  <div class="phone">
+    <div class="ph-corner" aria-hidden="true"></div>
+    <Title href={homeHref} />
+    <div class="ph-bar"><slot name="phone-actions" /></div>
+  </div>
+</header>
+
+<style is:global>
+  .lcars-header {
+    --hdr-inset: 12px;
+    --hdr-post: 112px;
+    --hdr-stub: 32px;
+    --cap: calc(var(--hdr-bar) + var(--hdr-gap) + var(--hdr-butter));
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 50;
+    height: calc(var(--hdr-pad) + var(--hdr-rise) + var(--cap) + var(--hdr-drop) + 6px);
+    background: var(--bg);
+    transition:
+      --hdr-pad var(--motion),
+      --hdr-rise var(--motion),
+      --hdr-bar var(--motion),
+      --hdr-gap var(--motion),
+      --hdr-butter var(--motion),
+      --hdr-drop var(--motion),
+      --hdr-outer-o var(--motion),
+      --hdr-inner-o var(--motion),
+      --hdr-outer-b var(--motion),
+      --hdr-inner-b var(--motion),
+      --hdr-label-pad var(--motion),
+      --ph-bar var(--motion),
+      --ph-drop var(--motion),
+      --ph-outer var(--motion),
+      --ph-inner var(--motion);
+  }
+  /*
+   * Compact label pad: 16px Antonio on a 21.5px line puts the caps 5.1px below the line top
+   * and 2.6px above its bottom, so a 2.5px bottom pad in the 24px bar leaves ~5px above and
+   * below the caps (visual spec, "Labels").
+   */
+  .lcars-header[data-compact] {
+    --hdr-pad: 8px;
+    --hdr-rise: 12px;
+    --hdr-bar: 24px;
+    --hdr-gap: 4px;
+    --hdr-butter: 7px;
+    --hdr-drop: 25px;
+    --hdr-outer-o: 27px;
+    --hdr-inner-o: 12px;
+    --hdr-outer-b: 27px;
+    --hdr-inner-b: 14px;
+    --hdr-label-pad: 2.5px;
+    --ph-bar: 20px;
+    --ph-drop: 8px;
+    --ph-outer: 20px;
+    --ph-inner: 8px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lcars-header {
+      transition: none;
+    }
+  }
+
+  /* Orange corner: post rises above the bar; outer curve bottom-left, fillet where post meets bar top. */
+  .lcars-header .corner {
+    position: absolute;
+    left: var(--hdr-inset);
+    width: calc(var(--hdr-post) + var(--hdr-stub));
+  }
+  .lcars-header .corner-o {
+    top: var(--hdr-pad);
+    height: calc(var(--hdr-rise) + var(--hdr-bar));
+    background: var(--frame);
+    border-end-start-radius: var(--hdr-outer-o);
+  }
+  .lcars-header .corner-o::before {
+    content: '';
+    position: absolute;
+    left: var(--hdr-post);
+    top: 0;
+    width: var(--hdr-stub);
+    height: var(--hdr-rise);
+    background: var(--bg);
+    border-end-start-radius: var(--hdr-inner-o);
+  }
+  /* Butter corner: bar on top, post drops below; outer curve top-left, fillet under the bar. */
+  .lcars-header .corner-b {
+    top: calc(var(--hdr-pad) + var(--hdr-rise) + var(--hdr-bar) + var(--hdr-gap));
+    height: calc(var(--hdr-butter) + var(--hdr-drop));
+    background: var(--butter);
+    border-start-start-radius: var(--hdr-outer-b);
+  }
+  .lcars-header .corner-b::before {
+    content: '';
+    position: absolute;
+    left: var(--hdr-post);
+    top: var(--hdr-butter);
+    width: var(--hdr-stub);
+    height: var(--hdr-drop);
+    background: var(--bg);
+    border-start-start-radius: var(--hdr-inner-b);
+  }
+
+  .lcars-header .lockup {
+    position: absolute;
+    left: calc(var(--hdr-inset) + var(--hdr-post) + var(--hdr-stub) + 14px); /* x 170 */
+    right: var(--hdr-inset);
+    top: calc(var(--hdr-pad) + var(--hdr-rise));
+    display: flex;
+    gap: 10px;
+  }
+  .lcars-header .rail {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+  }
+  .lcars-header .rail-bar,
+  .lcars-header .rail-end {
+    display: flex;
+    flex-direction: column;
+  }
+  .lcars-header .rail-bar {
+    flex: 1;
+    min-width: 0;
+  }
+  .lcars-header .rail-end {
+    width: 40px;
+    flex: none;
+  }
+  .lcars-header .rail-bar > .top,
+  .lcars-header .rail-end > .top {
+    height: var(--hdr-bar);
+    background: var(--frame);
+  }
+  .lcars-header .rail-end > .top {
+    border-start-end-radius: calc(var(--hdr-bar) / 2);
+    border-end-end-radius: calc(var(--hdr-bar) / 2);
+  }
+  .lcars-header .rail-bar > .seg,
+  .lcars-header .rail-end > .seg {
+    height: var(--hdr-butter);
+    margin-top: var(--hdr-gap);
+    background: var(--butter);
+  }
+  .lcars-header .rail-bar > .seg {
+    margin-inline-end: -6px;
+  }
+  .lcars-header .rail-end > .seg {
+    border-start-end-radius: calc(var(--hdr-butter) / 2);
+    border-end-end-radius: calc(var(--hdr-butter) / 2);
+  }
+
+  /* 600–1050px: always compact, narrower buttons. */
+  @media (min-width: 600px) and (max-width: 1049.98px) {
+    .lcars-header {
+      --nav-w: 90px;
+      --hdr-pad: 8px;
+      --hdr-rise: 12px;
+      --hdr-bar: 24px;
+      --hdr-gap: 4px;
+      --hdr-butter: 7px;
+      --hdr-drop: 25px;
+      --hdr-outer-o: 27px;
+      --hdr-inner-o: 12px;
+      --hdr-outer-b: 27px;
+      --hdr-inner-b: 14px;
+      --hdr-label-pad: 2.5px;
+    }
+  }
+
+  /* Phone header (< 600px). */
+  .lcars-header .phone {
+    display: none;
+  }
+  @media (max-width: 599.98px) {
+    .lcars-header {
+      /* 70px full (8 + 44 + 12 + 6); the compact band is 46px per the spec, not 8 + 28 + 6. */
+      height: max(46px, calc(8px + var(--ph-bar) + var(--ph-drop) + 6px));
+    }
+    .lcars-header .desk {
+      display: none;
+    }
+    .lcars-header .phone {
+      --cap: var(--ph-bar);
+      position: absolute;
+      inset: 8px 8px auto 8px;
+      display: flex;
+      gap: 6px;
+    }
+    .lcars-header .ph-corner {
+      position: relative;
+      flex: none;
+      width: 60px;
+      height: calc(var(--ph-bar) + var(--ph-drop));
+      background: var(--frame);
+      border-start-start-radius: var(--ph-outer);
+    }
+    .lcars-header .ph-corner::before {
+      content: '';
+      position: absolute;
+      left: 14px;
+      top: var(--ph-bar);
+      width: 46px;
+      height: var(--ph-drop);
+      background: var(--bg);
+      border-start-start-radius: var(--ph-inner);
+    }
+    .lcars-header .ph-bar {
+      flex: 1;
+      display: flex;
+      justify-content: flex-end;
+      height: var(--ph-bar);
+      background: var(--frame);
+      border-start-end-radius: calc(var(--ph-bar) / 2);
+      border-end-end-radius: calc(var(--ph-bar) / 2);
+    }
+  }
+</style>
+
+{
+  !isStatic && (
+    <script>
+      const header = document.querySelector<HTMLElement>('[data-lcars-header]:not([data-static])');
+      const sentinel = document.querySelector('[data-header-sentinel]');
+      const sections = [...document.querySelectorAll<HTMLElement>('main section[id]')];
+      const navLinks = [...document.querySelectorAll<HTMLAnchorElement>('[data-nav-section]')];
+      const phone = window.matchMedia('(max-width: 599.98px)');
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+      if (header && sentinel) {
+        new IntersectionObserver(([entry]) => {
+          header.toggleAttribute('data-compact', !entry.isIntersecting && entry.boundingClientRect.top < 0);
+        }).observe(sentinel);
+      }
+
+      let suppressed = false;
+      let releaseTimer: number | undefined;
+
+      function select(id: string | null) {
+        for (const link of navLinks) {
+          if (id !== null && link.dataset.navSection === id) link.setAttribute('aria-current', 'location');
+          else link.removeAttribute('aria-current');
+        }
+      }
+
+      // A 1px detection line just under the compact header; the section crossing it is active.
+      let sectionObserver: IntersectionObserver | undefined;
+      function observeSections() {
+        sectionObserver?.disconnect();
+        const line = phone.matches ? 46 : 86;
+        sectionObserver = new IntersectionObserver(
+          (entries) => {
+            if (suppressed) return;
+            const hit = entries.find((entry) => entry.isIntersecting);
+            if (!hit) return; // between sections or past the last one: keep the current selection
+            const id = hit.target.id;
+            select(navLinks.some((link) => link.dataset.navSection === id) ? id : null);
+          },
+          { rootMargin: `-${line}px 0px -${window.innerHeight - line - 1}px 0px` },
+        );
+        for (const section of sections) sectionObserver.observe(section);
+      }
+      observeSections();
+      window.addEventListener('resize', observeSections);
+      phone.addEventListener('change', observeSections);
+
+      function release() {
+        suppressed = false;
+        window.clearTimeout(releaseTimer);
+      }
+
+      for (const link of navLinks) {
+        link.addEventListener('click', () => {
+          const id = link.dataset.navSection;
+          if (!id) return;
+          select(id);
+          suppressed = true;
+          window.clearTimeout(releaseTimer);
+          releaseTimer = window.setTimeout(release, reduced.matches ? 0 : 1000);
+          window.addEventListener('scrollend', release, { once: true });
+        });
+      }
+    </script>
+  )
+}
