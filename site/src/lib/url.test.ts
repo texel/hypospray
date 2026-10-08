@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { withBase } from './url';
 
 describe('withBase', () => {
@@ -8,7 +9,9 @@ describe('withBase', () => {
   });
 
   it('prefixes a base without a trailing slash', () => {
-    expect(withBase('/docs/getting-started/', '/hypospray')).toBe('/hypospray/docs/getting-started/');
+    expect(withBase('/docs/getting-started/', '/hypospray')).toBe(
+      '/hypospray/docs/getting-started/',
+    );
   });
 
   it('prefixes a base with a trailing slash', () => {

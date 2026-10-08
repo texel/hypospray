@@ -1,4 +1,9 @@
 ---
+import { Code } from 'astro-expressive-code/components';
+import Landing from '../layouts/Landing.astro';
 ---
-<html lang="en"><head><meta charset="utf-8" /><title>Hypospray</title></head>
-<body><p>Landing page under construction. <a href="docs/">Docs</a></p></body></html>
+
+<Landing title="Hypospray" description="EC check">
+  <h1 style="font-family: var(--font-display); color: var(--text)">EC CHECK</h1>
+  <Code code={"const x = new Thing('a'); // note\nfunction f(): Thing { return x; }\nconst g = () => 1;"} lang="ts" frame="none" />
+</Landing>

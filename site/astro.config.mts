@@ -1,11 +1,40 @@
 import starlight from '@astrojs/starlight';
-import { defineConfig } from 'astro/config';
+import { defineConfig, fontProviders } from 'astro/config';
 
 const base = process.env.BASE_PATH || undefined;
 
 export default defineConfig({
   site: process.env.SITE_URL ?? 'https://texel.github.io',
   base,
+  fonts: [
+    {
+      provider: fontProviders.fontsource(),
+      name: 'Antonio',
+      cssVariable: '--font-antonio',
+      weights: [400, 600, 700],
+      styles: ['normal'],
+      subsets: ['latin'],
+      fallbacks: ['sans-serif'],
+    },
+    {
+      provider: fontProviders.fontsource(),
+      name: 'Barlow Semi Condensed',
+      cssVariable: '--font-barlow',
+      weights: [400],
+      styles: ['normal'],
+      subsets: ['latin'],
+      fallbacks: ['sans-serif'],
+    },
+    {
+      provider: fontProviders.fontsource(),
+      name: 'JetBrains Mono',
+      cssVariable: '--font-jetbrains',
+      weights: [400],
+      styles: ['normal'],
+      subsets: ['latin'],
+      fallbacks: ['monospace'],
+    },
+  ],
   integrations: [
     starlight({
       title: 'hypospray',

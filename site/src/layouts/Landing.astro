@@ -1,0 +1,56 @@
+---
+import { Font } from 'astro:assets';
+import { withBase } from '../lib/url';
+import '../styles/tokens.css';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
+    <title>{title}</title>
+    <Font cssVariable="--font-antonio" preload={[{ weight: 700 }]} />
+    <Font cssVariable="--font-barlow" />
+    <Font cssVariable="--font-jetbrains" />
+  </head>
+  <body>
+    <slot name="header" />
+    <main id="top">
+      <slot />
+    </main>
+    <slot name="dock" />
+  </body>
+</html>
+
+<style is:global>
+  html {
+    background: var(--bg);
+    color: var(--text-body);
+    font-family: var(--font-body);
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+  }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+</style>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { extractRegion } from './region';
 
 const source = [
@@ -33,7 +34,9 @@ describe('extractRegion', () => {
   });
 
   it('extracts a named region and strips nested markers', () => {
-    expect(extractRegion(source, 'outer')).toBe(['export function a() {', '  return 1;', '}'].join('\n'));
+    expect(extractRegion(source, 'outer')).toBe(
+      ['export function a() {', '  return 1;', '}'].join('\n'),
+    );
   });
 
   it('dedents an indented region', () => {
