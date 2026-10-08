@@ -41,8 +41,14 @@ const lcars = {
     { scope: ['constant.numeric', 'constant.language'], settings: { foreground: '#ffc58a' } },
     // Operators and punctuation stay default text; `new` keeps its keyword colour via the more specific scope.
     { scope: ['keyword.operator', 'punctuation'], settings: { foreground: '#f2e4cf' } },
-    { scope: ['keyword.operator.new', 'keyword.operator.expression'], settings: { foreground: '#c59bd8' } },
-    { scope: ['new.expr entity.name.type', 'meta.new.expr entity.name.function'], settings: { foreground: '#8cc8f5' } },
+    {
+      scope: ['keyword.operator.new', 'keyword.operator.expression'],
+      settings: { foreground: '#c59bd8' },
+    },
+    {
+      scope: ['new.expr entity.name.type', 'meta.new.expr entity.name.function'],
+      settings: { foreground: '#8cc8f5' },
+    },
   ],
 };
 
