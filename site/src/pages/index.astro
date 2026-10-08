@@ -1,6 +1,7 @@
 ---
 import Header from '../components/lcars/Header.astro';
 import NavButton from '../components/lcars/NavButton.astro';
+import Dock from '../components/landing/Dock.astro';
 import Landing from '../layouts/Landing.astro';
 import { withBase } from '../lib/url';
 ---
@@ -18,6 +19,7 @@ import { withBase } from '../lib/url';
   <section id="how" style="height: 120vh; color: var(--text)">HOW</section>
   <section id="code" style="height: 120vh; color: var(--text)">CODE</section>
   <footer style="height: 50vh"></footer>
+  <Dock slot="dock" />
 </Landing>
 
 <style is:global>
@@ -39,6 +41,9 @@ import { withBase } from '../lib/url';
   @media (max-width: 599.98px) {
     .hdr-spacer {
       height: 70px;
+    }
+    body {
+      padding-bottom: 100px;
     }
   }
   main section[id] {
