@@ -1,0 +1,133 @@
+---
+import CodePanel from './CodePanel.astro';
+
+interface Tab {
+  id: string;
+  label: string;
+  caption: string;
+  file: string;
+  code: string;
+  region?: string;
+}
+interface Props {
+  tabs: Tab[];
+}
+const { tabs } = Astro.props;
+---
+
+<div class="tabs" data-code-tabs>
+  <div class="tablist" role="tablist" aria-label="Examples">
+    {
+      tabs.map((tab, i) => (
+        <button
+          class="tab"
+          type="button"
+          role="tab"
+          id={`tab-${tab.id}`}
+          aria-controls={`panel-${tab.id}`}
+          aria-selected={i === 0 ? 'true' : 'false'}
+          tabindex={i === 0 ? 0 : -1}
+        >
+          {tab.label}
+        </button>
+      ))
+    }
+  </div>
+  {
+    tabs.map((tab, i) => (
+      <div class="tabpanel" role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`} hidden={i !== 0}>
+        <p class="caption">{tab.caption}</p>
+        <CodePanel code={tab.code} region={tab.region} file={tab.file} hue="var(--code)" dim="var(--code-dim)" />
+      </div>
+    ))
+  }
+</div>
+
+<style>
+  .tablist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .tab {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    min-width: 108px;
+    height: 44px;
+    padding: 0 7px 5px;
+    border: 0;
+    background: var(--code-dim);
+    color: var(--code);
+    font-family: var(--font-display);
+    font-size: 16px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition:
+      background-color var(--motion),
+      color var(--motion);
+  }
+  .tab[aria-selected='true'] {
+    background: var(--code);
+    color: var(--bg);
+  }
+  @media (hover: hover) {
+    .tab:hover:not([aria-selected='true']) {
+      background: color-mix(in oklab, var(--code-dim), var(--text) 15%);
+    }
+  }
+  .tab:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+  .caption {
+    margin: 0 0 12px;
+    font-size: 20px;
+    line-height: 1.5;
+    color: var(--text-body);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tab {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-code-tabs]')) {
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+
+    function activate(next: HTMLButtonElement, focus: boolean) {
+      for (const tab of tabs) {
+        const selected = tab === next;
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        const panel = root.querySelector<HTMLElement>(`#${tab.getAttribute('aria-controls')}`);
+        if (panel) panel.hidden = !selected;
+      }
+      if (focus) next.focus();
+    }
+
+    for (const tab of tabs) {
+      tab.addEventListener('click', () => activate(tab, false));
+      tab.addEventListener('keydown', (event) => {
+        const i = tabs.indexOf(tab);
+        const target =
+          event.key === 'ArrowRight'
+            ? tabs[(i + 1) % tabs.length]
+            : event.key === 'ArrowLeft'
+              ? tabs[(i - 1 + tabs.length) % tabs.length]
+              : event.key === 'Home'
+                ? tabs[0]
+                : event.key === 'End'
+                  ? tabs[tabs.length - 1]
+                  : undefined;
+        if (target) {
+          event.preventDefault();
+          activate(target, true);
+        }
+      });
+    }
+  }
+</script>

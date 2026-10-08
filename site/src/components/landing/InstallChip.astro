@@ -1,0 +1,75 @@
+---
+interface Props {
+  command: string;
+}
+const { command } = Astro.props;
+---
+
+<div class="chip" data-install-chip>
+  <span class="dollar" aria-hidden="true">$</span>
+  <code class="cmd">{command}</code>
+  <button class="copy" type="button" data-command={command}>
+    <span class="label" aria-live="polite">COPY</span>
+  </button>
+</div>
+
+<style>
+  .chip {
+    display: inline-flex;
+    gap: 4px;
+    height: 48px;
+  }
+  .dollar,
+  .copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--butter);
+    color: var(--bg);
+    font-family: var(--font-display);
+  }
+  .dollar {
+    width: 40px;
+    font-size: 18px;
+  }
+  .cmd {
+    display: flex;
+    align-items: center;
+    padding-inline: 14px;
+    background: var(--panel);
+    color: var(--text);
+    font-family: var(--font-code);
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  .copy {
+    width: 76px;
+    border: 0;
+    border-start-end-radius: 24px;
+    border-end-end-radius: 24px;
+    font-size: 16px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+  }
+  .copy:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+</style>
+
+<script>
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-install-chip] .copy')) {
+    const label = button.querySelector('.label');
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(button.dataset.command ?? '');
+        if (label) label.textContent = 'COPIED';
+      } catch {
+        if (label) label.textContent = 'FAILED';
+      }
+      window.setTimeout(() => {
+        if (label) label.textContent = 'COPY';
+      }, 1500);
+    });
+  }
+</script>

@@ -1,7 +1,12 @@
 ---
 import Header from '../components/lcars/Header.astro';
 import NavButton from '../components/lcars/NavButton.astro';
+import Button from '../components/landing/Button.astro';
+import CodePanel from '../components/landing/CodePanel.astro';
+import CodeTabs from '../components/landing/CodeTabs.astro';
 import Dock from '../components/landing/Dock.astro';
+import InstallChip from '../components/landing/InstallChip.astro';
+import Section from '../components/landing/Section.astro';
 import Landing from '../layouts/Landing.astro';
 import { withBase } from '../lib/url';
 ---
@@ -15,7 +20,19 @@ import { withBase } from '../lib/url';
   </Header>
   <div class="hdr-spacer"><div data-header-sentinel></div></div>
   <section id="hero" style="height: 80vh; color: var(--text)">HERO</section>
-  <section id="why" style="height: 120vh; color: var(--text)">WHY</section>
+  <Section id="why" name="WHY" hue="var(--why)" dim="var(--why-dim)">
+    <CodePanel file="smoke.ts" code={'// #region a\nconst x = 1;\n// #endregion'} region="a" />
+    <InstallChip command="npm i @hypospray/core" />
+    <Button href="#">Get started</Button>
+    <Button href="#" variant="secondary" hue="var(--why)">API reference</Button>
+    <CodeTabs
+      tabs={[
+        { id: 'one', label: 'ONE', caption: 'First.', file: 'one.ts', code: 'const one = 1;' },
+        { id: 'two', label: 'TWO', caption: 'Second.', file: 'two.ts', code: 'const two = 2;' },
+      ]}
+    />
+    <div style="height: 80vh"></div>
+  </Section>
   <section id="how" style="height: 120vh; color: var(--text)">HOW</section>
   <section id="code" style="height: 120vh; color: var(--text)">CODE</section>
   <footer style="height: 50vh"></footer>

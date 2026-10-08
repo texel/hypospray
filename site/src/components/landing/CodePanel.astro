@@ -1,0 +1,53 @@
+---
+import { Code } from 'astro-expressive-code/components';
+import { extractRegion } from '../../lib/region';
+
+interface Props {
+  code: string;
+  region?: string;
+  file?: string;
+  hue?: string;
+  dim?: string;
+}
+const { code, region, file, hue = 'var(--frame)', dim = 'var(--hero-dim)' } = Astro.props;
+const source = extractRegion(code, region);
+---
+
+<figure class="panel" style={`--hue: ${hue}; --dim: ${dim}`}>
+  {
+    file && (
+      <figcaption class="bar">
+        <span class="file">{file}</span>
+        <slot name="action" />
+      </figcaption>
+    )
+  }
+  <div class="body"><Code code={source} lang="ts" frame="none" /></div>
+</figure>
+
+<style>
+  .panel {
+    margin: 0;
+    min-width: 0;
+    background: var(--panel);
+  }
+  .bar {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    height: 28px;
+    background: var(--dim);
+  }
+  .file {
+    align-self: center;
+    padding-inline: 8px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hue);
+  }
+  .body {
+    overflow-x: auto;
+  }
+</style>
