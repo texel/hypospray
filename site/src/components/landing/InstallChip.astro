@@ -18,6 +18,11 @@ const { command } = Astro.props;
     display: inline-flex;
     gap: 4px;
     height: 48px;
+    max-width: 100%;
+  }
+  .dollar,
+  .copy {
+    flex: none;
   }
   .dollar,
   .copy {
@@ -41,6 +46,14 @@ const { command } = Astro.props;
     font-family: var(--font-code);
     font-size: 15px;
     white-space: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+  }
+  @media (max-width: 599.98px) {
+    .cmd {
+      padding-inline: 10px;
+      font-size: 13px;
+    }
   }
   .copy {
     width: 76px;
