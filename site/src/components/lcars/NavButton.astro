@@ -26,8 +26,12 @@ const { href, action, hue, label, section, current } = Astro.props;
 </div>
 
 <style>
+  /* --grow is a factor (0 rest, 0.5 hover, 1 selected), not a length: the length is derived from
+     the header geometry, which animates on its own during the morph. Transitioning a derived
+     length (or height/margin) would ease every frame of the morph a second time and lag behind. */
   .nav-item {
-    --grow: 0px;
+    --grow: 0;
+    transition: --grow var(--motion);
     position: relative;
     display: flex;
     flex-direction: column;
@@ -41,14 +45,12 @@ const { href, action, hue, label, section, current } = Astro.props;
     border: 0;
     cursor: pointer;
     justify-content: flex-end;
-    height: calc(var(--hdr-bar) + var(--grow));
+    height: calc(var(--hdr-bar) + (var(--hdr-gap) + var(--hdr-butter)) * var(--grow));
     min-height: 24px;
     background: var(--hue);
     color: var(--bg);
     text-decoration: none;
-    transition:
-      height var(--motion),
-      background-color var(--motion);
+    transition: background-color var(--motion);
     z-index: 1;
   }
   .nav-label {
@@ -68,18 +70,18 @@ const { href, action, hue, label, section, current } = Astro.props;
     background: var(--butter);
     transition:
       opacity var(--motion),
-      margin var(--motion);
+      margin-inline-end var(--motion);
   }
   /* A grown button sits over its own segment; the previous segment stops 6px short of it. */
   .nav-item:has(> .nav-btn[aria-current]) {
-    --grow: calc(var(--hdr-gap) + var(--hdr-butter));
+    --grow: 1;
   }
   .nav-item:has(> .nav-btn[aria-current]) > .seg {
     opacity: 0;
   }
   @media (hover: hover) {
     .nav-item:has(> .nav-btn:hover):not(:has(> .nav-btn[aria-current])) {
-      --grow: calc((var(--hdr-gap) + var(--hdr-butter)) / 2);
+      --grow: 0.5;
     }
     .nav-item:has(> .nav-btn:hover) > .seg {
       opacity: 0;
@@ -96,6 +98,7 @@ const { href, action, hue, label, section, current } = Astro.props;
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
+    .nav-item,
     .nav-btn,
     .seg {
       transition: none;

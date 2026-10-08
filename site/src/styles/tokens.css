@@ -101,6 +101,11 @@
   inherits: true;
   initial-value: 5px;
 }
+@property --grow {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
 @property --ph-bar {
   syntax: '<length>';
   inherits: true;
