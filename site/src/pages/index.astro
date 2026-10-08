@@ -1,5 +1,7 @@
 ---
 // oxlint-disable import/default -- Vite's `?raw` imports have a default export the import resolver can't see.
+import { Image } from 'astro:assets';
+import heroSchematic from '../assets/hero-schematic.png';
 import Header from '../components/lcars/Header.astro';
 import NavButton from '../components/lcars/NavButton.astro';
 import Button from '../components/landing/Button.astro';
@@ -131,7 +133,19 @@ const tabs = [
           <InstallChip command="npm i @hypospray/core" />
         </div>
       </div>
-      <CodePanel file="captains-log.ts" code={captainsLog} region="hero" />
+      {/* Comparing hero visuals: the schematic shows by default; add ?hero=code to the URL for the code panel. */}
+      <div class="hero-visual" data-hero-visual="schematic">
+        <Image
+          src={heroSchematic}
+          alt="Schematic of a hypospray, side and front elevations"
+          widths={[420, 840]}
+          sizes="(max-width: 1049.98px) 100vw, 420px"
+          loading="eager"
+        />
+      </div>
+      <div class="hero-visual" data-hero-visual="code" hidden>
+        <CodePanel file="captains-log.ts" code={captainsLog} region="hero" />
+      </div>
     </div>
   </Section>
 
@@ -196,6 +210,13 @@ const tabs = [
   </Section>
 
   <Dock slot="dock" />
+  <script>
+    if (new URLSearchParams(location.search).get('hero') === 'code') {
+      for (const el of document.querySelectorAll<HTMLElement>('[data-hero-visual]')) {
+        el.hidden = el.dataset.heroVisual !== 'code';
+      }
+    }
+  </script>
 </Landing>
 
 <style is:global>
@@ -279,6 +300,12 @@ const tabs = [
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
     gap: 48px;
     align-items: start;
+  }
+  .hero-visual img {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    height: auto;
   }
   .actions {
     display: flex;
