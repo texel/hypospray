@@ -14,6 +14,16 @@
   --sl-color-bg-nav: var(--bg);
   --sl-color-bg-sidebar: var(--bg);
   --sl-color-hairline-shade: var(--rule);
+  /* Asides: note → HOW hue, tip → WHY hue, caution → frame orange. Danger keeps Starlight's red. */
+  --sl-color-blue-low: var(--how-dim);
+  --sl-color-blue: var(--how);
+  --sl-color-blue-high: var(--text);
+  --sl-color-purple-low: var(--why-dim);
+  --sl-color-purple: var(--why);
+  --sl-color-purple-high: var(--text);
+  --sl-color-orange-low: var(--hero-dim);
+  --sl-color-orange: var(--frame);
+  --sl-color-orange-high: var(--text);
   --sl-font: var(--font-body);
   --sl-font-mono: var(--font-code);
   --sl-text-base: 1.125rem;
