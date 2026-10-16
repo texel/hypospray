@@ -202,3 +202,21 @@ Claude drafts all copy and code against the real API; Leigh edits afterwards.
 - Executing examples to assert their output comments (a possible follow-up).
 - Choosing a host and setting up deployment beyond keeping the existing workflow pointed at `site/`.
 - Rewriting docs content beyond moving it and adding the `/docs/` overview.
+
+## Status and follow-ups (2026-10-15)
+
+The plan (`2026-10-08-site-plan.md`) is fully implemented on `leigh/marketing-site`, and `pnpm run check` and both link checks pass. Nothing has been deployed.
+
+Added after the plan:
+
+- A hero schematic image (`site/src/assets/hero-schematic.png`) is now the default hero visual. `?hero=code` shows the original code panel instead, for comparison.
+
+Open items:
+
+- Choose a hero visual, then delete the other `hero-visual` block and the `?hero=` script in `site/src/pages/index.astro`.
+- On phone docs pages, Starlight's menu toggle sits below the LCARS bar instead of in it.
+- The code panel's frame title bar renders orange. Check it against the designs.
+- Starlight's "On this page" heading uses Barlow. It should probably use the display font (Antonio).
+- `astro build` prints a harmless 404-route warning.
+- Copy is still a first draft, pending an edit for voice and clarity.
+- Discuss whether the plan needed its level of detail (full code in every step), or whether a lighter plan would do for this kind of work.
