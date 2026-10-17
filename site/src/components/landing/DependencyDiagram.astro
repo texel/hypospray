@@ -1,0 +1,275 @@
+---
+/**
+ * One panel of the Why diagram: the same chain (test → bridge → captain's log → stardate) drawn
+ * three ways, differing only in how the test gets a fake clock into the log. Colours come from
+ * `--hue` and `--dim`, set by the caller.
+ */
+interface Props {
+  variant: 'hard-wired' | 'arguments' | 'hypospray';
+  /** Read out in place of the drawing. */
+  label: string;
+}
+const { variant, label } = Astro.props;
+
+// Shared geometry (viewBox units). The chain runs down the left; each variant's route from the
+// test to the clock runs down the right.
+const W = 320;
+const H = 304;
+const NODE = { x: 16, w: 168, h: 36 };
+const MID = NODE.x + NODE.w / 2;
+const RIGHT = NODE.x + NODE.w;
+const ROW = { test: 8, bridge: 88, log: 168, clock: 248 };
+const centre = (row: number) => row + NODE.h / 2;
+const arrow = `${variant}-arrow`;
+const hotArrow = `${variant}-arrow-hot`;
+const clockLabel = variant === 'hard-wired' ? 'Global stardate' : 'Fake stardate';
+const clockWidth = variant === 'hard-wired' ? W - 2 * NODE.x : NODE.w;
+---
+
+<svg
+  class="diagram"
+  viewBox={`0 0 ${W} ${H}`}
+  role="img"
+  aria-label={label}
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <defs>
+    <marker
+      id={arrow}
+      class="tip"
+      viewBox="0 0 8 8"
+      refX="8"
+      refY="4"
+      markerWidth="8"
+      markerHeight="8"
+      markerUnits="userSpaceOnUse"
+      orient="auto"
+    >
+      <path d="M0,0 L8,4 L0,8 z"></path>
+    </marker>
+    <marker
+      id={hotArrow}
+      class="tip hot"
+      viewBox="0 0 8 8"
+      refX="8"
+      refY="4"
+      markerWidth="8"
+      markerHeight="8"
+      markerUnits="userSpaceOnUse"
+      orient="auto"
+    >
+      <path d="M0,0 L8,4 L0,8 z"></path>
+    </marker>
+  </defs>
+
+  {/* The chain: each box uses the one below it. */}
+  <line
+    class="edge"
+    x1={MID}
+    y1={ROW.test + NODE.h}
+    x2={MID}
+    y2={ROW.bridge - 2}
+    marker-end={`url(#${arrow})`}
+  />
+  <line
+    class="edge"
+    x1={MID}
+    y1={ROW.bridge + NODE.h}
+    x2={MID}
+    y2={ROW.log - 2}
+    marker-end={`url(#${arrow})`}
+  />
+  <line
+    class="edge"
+    x1={MID}
+    y1={ROW.log + NODE.h}
+    x2={MID}
+    y2={ROW.clock - 2}
+    marker-end={`url(#${arrow})`}
+  />
+
+  {variant === 'hard-wired' && (
+    <>
+      {/* The test patches the global directly… */}
+      <polyline
+        class="edge hot"
+        points={`${RIGHT},${centre(ROW.test)} 290,${centre(ROW.test)} 290,${ROW.clock - 2}`}
+        marker-end={`url(#${hotArrow})`}
+      />
+      <text class="note" x="237" y={centre(ROW.test) - 8}>
+        Stubs
+      </text>
+      {/* …and the next test reads whatever it left there. */}
+      <rect class="node ghost" x="196" y={ROW.log} width="80" height={NODE.h} rx={NODE.h / 2} />
+      <text class="label ghost" x="236" y={centre(ROW.log)}>
+        Next test
+      </text>
+      <line
+        class="edge hot dashed"
+        x1="236"
+        y1={ROW.log + NODE.h}
+        x2="236"
+        y2={ROW.clock - 2}
+        marker-end={`url(#${hotArrow})`}
+      />
+    </>
+  )}
+
+  {variant === 'arguments' && (
+    <>
+      {/* The test has to build every layer between it and the clock. */}
+      <polyline
+        class="edge hot"
+        points={`${RIGHT},${centre(ROW.test)} 290,${centre(ROW.test)} 290,${centre(ROW.clock)} ${RIGHT + 2},${centre(ROW.clock)}`}
+        marker-end={`url(#${hotArrow})`}
+      />
+      <line
+        class="edge hot"
+        x1="290"
+        y1={centre(ROW.log)}
+        x2={RIGHT + 2}
+        y2={centre(ROW.log)}
+        marker-end={`url(#${hotArrow})`}
+      />
+      <text class="note" x="237" y={centre(ROW.log) - 8}>
+        Builds
+      </text>
+      <text class="note" x="237" y={centre(ROW.clock) - 8}>
+        Fakes
+      </text>
+    </>
+  )}
+
+  {variant === 'hypospray' && (
+    <>
+      {/* Everything asks the injector; the test only talks to the injector. */}
+      <rect class="rail" x="262" y={ROW.bridge} width="28" height={H - ROW.bridge - 4} rx="14" />
+      <text
+        class="label rail-label"
+        x="276"
+        y={(ROW.bridge + H - 4) / 2}
+        transform={`rotate(90 276 ${(ROW.bridge + H - 4) / 2})`}
+      >
+        Injector
+      </text>
+      <polyline
+        class="edge hot"
+        points={`${RIGHT},${centre(ROW.test)} 276,${centre(ROW.test)} 276,${ROW.bridge - 2}`}
+        marker-end={`url(#${hotArrow})`}
+      />
+      <text class="note" x="230" y={centre(ROW.test) - 8}>
+        Provides
+      </text>
+      <line
+        class="edge dashed"
+        x1={RIGHT}
+        y1={centre(ROW.bridge)}
+        x2="262"
+        y2={centre(ROW.bridge)}
+      />
+      <line class="edge dashed" x1={RIGHT} y1={centre(ROW.log)} x2="262" y2={centre(ROW.log)} />
+      <line
+        class="edge hot dashed"
+        x1={RIGHT}
+        y1={centre(ROW.clock)}
+        x2="262"
+        y2={centre(ROW.clock)}
+      />
+      <text class="note" x="223" y={centre(ROW.bridge) - 8}>
+        Asks
+      </text>
+    </>
+  )}
+
+  <rect class="node" x={NODE.x} y={ROW.test} width={NODE.w} height={NODE.h} rx={NODE.h / 2} />
+  <text class="label" x={MID} y={centre(ROW.test)}>
+    Test
+  </text>
+  <rect class="node" x={NODE.x} y={ROW.bridge} width={NODE.w} height={NODE.h} rx={NODE.h / 2} />
+  <text class="label" x={MID} y={centre(ROW.bridge)}>
+    Bridge
+  </text>
+  <rect class="node" x={NODE.x} y={ROW.log} width={NODE.w} height={NODE.h} rx={NODE.h / 2} />
+  <text class="label" x={MID} y={centre(ROW.log)}>
+    Captain's log
+  </text>
+  <rect
+    class="node on"
+    x={NODE.x}
+    y={ROW.clock}
+    width={clockWidth}
+    height={NODE.h}
+    rx={NODE.h / 2}
+  />
+  <text class="label on" x={NODE.x + clockWidth / 2} y={centre(ROW.clock)}>
+    {clockLabel}
+  </text>
+</svg>
+
+<style>
+  .diagram {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+  .node {
+    fill: var(--dim);
+  }
+  .node.on {
+    fill: var(--hue);
+  }
+  .node.ghost {
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 3;
+  }
+  .rail {
+    fill: var(--dim);
+  }
+  .label,
+  .note {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+  .label {
+    font-size: 15px;
+    fill: var(--hue);
+  }
+  .label.on {
+    fill: var(--bg);
+  }
+  .label.ghost {
+    font-size: 12px;
+    fill: var(--text-muted);
+  }
+  .rail-label {
+    font-size: 13px;
+  }
+  .note {
+    font-size: 12px;
+    fill: var(--text-muted);
+    dominant-baseline: auto;
+  }
+  .edge {
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 2;
+  }
+  .edge.hot {
+    stroke: var(--hue);
+  }
+  .edge.dashed {
+    stroke-dasharray: 5 4;
+  }
+  .tip path {
+    fill: var(--text-muted);
+  }
+  .tip.hot path {
+    fill: var(--hue);
+  }
+</style>

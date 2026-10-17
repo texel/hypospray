@@ -161,8 +161,12 @@ const { label, sides } = Astro.props;
     background: var(--dim-0);
     transition: background-color var(--motion);
   }
+  /* One rule per side after the first; add another for a fourth side. */
   .tablist:has(> .tab:nth-child(2)[aria-selected='true']) > .fill {
     background: var(--dim-1);
+  }
+  .tablist:has(> .tab:nth-child(3)[aria-selected='true']) > .fill {
+    background: var(--dim-2);
   }
   @media (hover: hover) {
     .tab:hover:not([aria-selected='true']) {

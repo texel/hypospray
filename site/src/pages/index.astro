@@ -4,6 +4,7 @@ import Button from '../components/landing/Button.astro';
 import CodePanel from '../components/landing/CodePanel.astro';
 import CodeTabs from '../components/landing/CodeTabs.astro';
 import CompareTabs from '../components/landing/CompareTabs.astro';
+import DependencyDiagram from '../components/landing/DependencyDiagram.astro';
 import Dock from '../components/landing/Dock.astro';
 import InlineMarkdown from '../components/landing/InlineMarkdown.astro';
 import InstallChip from '../components/landing/InstallChip.astro';
@@ -15,14 +16,19 @@ import codeBorg from '../examples/code-borg.ts?raw';
 import codeClock from '../examples/code-clock.ts?raw';
 import codeHolodeck from '../examples/code-holodeck.ts?raw';
 import codeMenu from '../examples/code-menu.ts?raw';
-import howOverride from '../examples/how-override.ts?raw';
-import withLogTest from '../examples/why/with/captains-log.test.ts?raw';
-import withLog from '../examples/why/with/captains-log.ts?raw';
-import { Content as WithNotes } from '../examples/why/with/notes.md';
-import withStardate from '../examples/why/with/stardate.ts?raw';
-import withoutLogTest from '../examples/why/without/captains-log.test.ts?raw';
-import withoutLog from '../examples/why/without/captains-log.ts?raw';
-import { Content as WithoutNotes } from '../examples/why/without/notes.md';
+import argumentsBridgeTest from '../examples/how/arguments/bridge.test.ts?raw';
+import argumentsBridge from '../examples/how/arguments/bridge.ts?raw';
+import argumentsLog from '../examples/how/arguments/captains-log.ts?raw';
+import { Content as ArgumentsNotes } from '../examples/how/arguments/notes.md';
+import withBridgeTest from '../examples/how/with/bridge.test.ts?raw';
+import withBridge from '../examples/how/with/bridge.ts?raw';
+import withLog from '../examples/how/with/captains-log.ts?raw';
+import { Content as WithNotes } from '../examples/how/with/notes.md';
+import withStardate from '../examples/how/with/stardate.ts?raw';
+import withoutBridgeTest from '../examples/how/without/bridge.test.ts?raw';
+import withoutBridge from '../examples/how/without/bridge.ts?raw';
+import withoutLog from '../examples/how/without/captains-log.ts?raw';
+import { Content as WithoutNotes } from '../examples/how/without/notes.md';
 import Landing from '../layouts/Landing.astro';
 import { stardate } from '../lib/stardate';
 import { withBase } from '../lib/url';
@@ -49,32 +55,35 @@ const benefits = [
   },
 ];
 
-const steps = [
+const ways = [
   {
-    n: 1,
+    variant: 'hard-wired',
     hue: 'var(--frame)',
-    title: 'Provide',
-    body: 'Write a dependency as an ordinary function or class.',
-    code: captainsLog,
-    region: 'write',
+    dim: 'var(--hero-dim)',
+    title: 'Hard-wired',
+    label:
+      "The test stubs the global stardate, which the captain's log reads directly. The next test reads the same global.",
+    body: 'The log reads the global clock itself. To fake it, a test replaces the clock for everyone, and has to put it back before the next test runs.',
   },
   {
-    n: 2,
+    variant: 'arguments',
     hue: 'var(--why)',
-    title: 'Consume',
-    body: 'Ask for it with `inject()`. The type is automatically inferred.',
-    code: captainsLog,
-    region: 'inject',
+    dim: 'var(--why-dim)',
+    title: 'Arguments',
+    label:
+      "The test builds the captain's log with a fake stardate and passes it to the bridge, reaching every layer.",
+    body: 'Pass the clock in, and the log is easy to test. But the bridge builds its own log, so the test has to build one for it. Every layer between the test and the clock is one more thing it has to know about.',
   },
   {
-    n: 3,
-    hue: 'var(--uses)',
-    title: 'Override',
-    body: 'Provide a different value to any injector. Callers never know.',
-    code: howOverride,
-    region: 'override',
+    variant: 'hypospray',
+    hue: 'var(--how)',
+    dim: 'var(--how-dim)',
+    title: 'Hypospray',
+    label:
+      'The test provides a fake stardate to the injector once. The bridge, log and stardate all ask the injector for what they need.',
+    body: 'Each function asks the injector for what it needs. The test hands the injector a fake clock once, and it reaches the log however deep it is.',
   },
-];
+] as const;
 
 const tabs = [
   {
@@ -167,60 +176,92 @@ const tabs = [
       We can do better.
     </h2>
     <p class="lede wide">
-      Your project uses a package manager, so why are you still hard-wiring depdendencies into your
+      Your project uses a package manager, so why are you still hard-wiring dependencies into your
       code?
     </p>
-    <div class="why-compare">
-      <CompareTabs
-        label="With and without Hypospray"
-        sides={[
-          {
-            id: 'why-without',
-            key: 'without',
-            label: 'Without Hypospray',
-            hue: 'var(--frame)',
-            dim: 'var(--hero-dim)',
-            notes: WithoutNotes,
-            files: [
-              { name: 'captains-log.ts', code: withoutLog, region: 'code' },
-              { name: 'captains-log.test.ts', code: withoutLogTest },
-            ],
-          },
-          {
-            id: 'why-with',
-            key: 'with',
-            label: 'With Hypospray',
-            hue: 'var(--why)',
-            dim: 'var(--why-dim)',
-            notes: WithNotes,
-            files: [
-              { name: 'captains-log.ts', code: withLog },
-              { name: 'stardate.ts', code: withStardate, region: 'code' },
-              { name: 'captains-log.test.ts', code: withLogTest },
-            ],
-          },
-        ]}
-      />
-    </div>
+    <p class="why-intro">
+      Most code reaches straight for what it needs: a global, an import, a <code>new</code>. That
+      works until you want something different there, like a fixed clock in a test or a different
+      API in staging. Here's a captain's log that stamps each entry with the stardate, used by the
+      bridge, and three ways a test can give it a fake clock.
+    </p>
+    <ol class="ways">
+      {ways.map((way) => (
+        <li class="way" style={`--hue: ${way.hue}; --dim: ${way.dim}`}>
+          <figure>
+            <div class="way-art">
+              <DependencyDiagram variant={way.variant} label={way.label} />
+            </div>
+            <figcaption>
+              <h3>{way.title}</h3>
+              <p>
+                <InlineMarkdown text={way.body} />
+              </p>
+            </figcaption>
+          </figure>
+        </li>
+      ))}
+    </ol>
+    <p class="why-outro">
+      <a href="#how">See all three in code</a>
+    </p>
   </Section>
 
   <Section id="how" name="How" hue="var(--how)" dim="var(--how-dim)">
-    <div class="steps">
-      {steps.map((s) => (
-        <div class="step">
-          <h3>
-            <span class="numeral" style={`color: ${s.hue}`}>
-              {s.n}
-            </span>{' '}
-            {s.title}
-          </h3>
-          <p>
-            <InlineMarkdown text={s.body} />
-          </p>
-          <CodePanel code={s.code} region={s.region} />
-        </div>
-      ))}
+    <h2>Dependencies all the way down.</h2>
+    <p class="lede wide">
+      Passing arguments works until the thing you need to change is a few calls deep. Here's one
+      clock, two levels down, three ways.
+    </p>
+    <div class="install">
+      <InstallChip command="npm i @hypospray/core" />
+      <p>No runtime dependencies. Works with TypeScript or plain JavaScript.</p>
     </div>
+    <CompareTabs
+      label="Three ways to give the bridge a clock"
+      sides={[
+        {
+          id: 'how-without',
+          key: 'without',
+          label: 'Hard-wired',
+          hue: 'var(--frame)',
+          dim: 'var(--hero-dim)',
+          notes: WithoutNotes,
+          files: [
+            { name: 'bridge.ts', code: withoutBridge },
+            { name: 'captains-log.ts', code: withoutLog, region: 'code' },
+            { name: 'bridge.test.ts', code: withoutBridgeTest },
+          ],
+        },
+        {
+          id: 'how-arguments',
+          key: 'arguments',
+          label: 'Arguments',
+          hue: 'var(--why)',
+          dim: 'var(--why-dim)',
+          notes: ArgumentsNotes,
+          files: [
+            { name: 'bridge.ts', code: argumentsBridge },
+            { name: 'captains-log.ts', code: argumentsLog, region: 'code' },
+            { name: 'bridge.test.ts', code: argumentsBridgeTest },
+          ],
+        },
+        {
+          id: 'how-with',
+          key: 'with',
+          label: 'Hypospray',
+          hue: 'var(--how)',
+          dim: 'var(--how-dim)',
+          notes: WithNotes,
+          files: [
+            { name: 'bridge.ts', code: withBridge },
+            { name: 'captains-log.ts', code: withLog },
+            { name: 'stardate.ts', code: withStardate, region: 'code' },
+            { name: 'bridge.test.ts', code: withBridgeTest },
+          ],
+        },
+      ]}
+    />
   </Section>
 
   <Section id="uses" name="Uses" hue="var(--uses)" dim="var(--uses-dim)" last>
@@ -353,28 +394,62 @@ const tabs = [
     gap: 16px;
     align-items: center;
   }
-  .why-compare {
-    margin-bottom: 48px;
-  }
-  .benefits,
-  .steps {
+  .benefits {
     display: grid;
     grid-area: benefits;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 32px;
   }
-  .steps {
-    gap: 28px;
+  .why-intro {
+    max-width: 68ch;
+    margin: 0 0 40px;
   }
-  .step h3 {
-    font-size: 26px;
+  .why-intro code {
+    font-family: var(--font-code);
+    font-size: 0.85em;
+    color: var(--docs);
+  }
+  .ways {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 32px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .way figure {
+    margin: 0;
+  }
+  .way-art {
+    padding: 24px 20px;
+    background: var(--panel);
+  }
+  .way h3 {
+    margin-top: 20px;
+    color: var(--hue);
+  }
+  .way p {
+    margin: 0;
+  }
+  .why-outro {
+    margin: 40px 0 0;
+  }
+  .why-outro a {
+    color: var(--text);
+    text-decoration-color: var(--how);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+  .install {
     display: flex;
-    align-items: baseline;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    align-items: center;
+    margin-bottom: 40px;
   }
-  .numeral {
-    font-weight: 700;
-    font-size: 40px;
+  .install p {
+    margin: 0;
+    color: var(--text-muted);
   }
   .cta {
     display: flex;
@@ -413,9 +488,12 @@ const tabs = [
     .hero {
       grid-template-columns: minmax(0, 1fr);
     }
-    .benefits,
-    .steps {
+    .benefits {
       grid-template-columns: minmax(0, 1fr);
+    }
+    .ways {
+      grid-template-columns: minmax(0, 1fr);
+      max-width: 440px;
     }
   }
   @media (max-width: 599.98px) {

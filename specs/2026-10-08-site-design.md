@@ -30,8 +30,8 @@ Build a marketing landing page for Hypospray from the LCARS-style designs, and g
 | URLs | Landing page at `/` (`src/pages/index.astro`). Docs at `/docs/…` via Starlight's documented subpath convention: content in `src/content/docs/docs/`. |
 | Hosting | Undecided. Keep `SITE_URL`/`BASE_PATH` from env, and route every internal link through a base-aware helper. |
 | Header morph | Triggered morph (not a swap, not scroll-scrubbed), driven by IntersectionObserver. CSS scroll-state queries, scroll-triggered animations and CSS scroll-spy are Chromium-only as of late 2026, so none are used. |
-| Section 04 | "Try It" becomes **CODE**: a tabbed panel of static, highlighted examples in the `--try` hue. A live Try It playground is a separate, later project. |
-| Section numbers | Removed everywhere: segments, section headers and nav labels. Nav labels are WHY, HOW, CODE, DOCS. |
+| Section 04 | "Try It" becomes **USES** (first named CODE): a tabbed panel of static, highlighted examples in the `--try` hue. A live Try It playground is a separate, later project. |
+| Section numbers | Removed everywhere: segments, section headers and nav labels. Nav labels are WHY, HOW, USES, DOCS. |
 | Theme | Dark only. Tokens are layered (raw palette → semantic) so a light set could be added later. No light theme is planned. |
 | Docs header | The compact lockup, static. Buttons: SEARCH, GUIDE, API, GITHUB. The title links home. |
 | Code samples | Real `.ts` files, typechecked against `@hypospray/core`. Fragments come from `// #region name` markers. |
@@ -58,10 +58,10 @@ A `data-compact` attribute on the header switches the values, and CSS transition
 **State script (in `Header`):**
 
 - A sentinel at the bottom of the spacer, watched by an IntersectionObserver, toggles `data-compact` once the full header's space has scrolled out.
-- A second IntersectionObserver tracks the sections. The active section is the last one whose top has passed a line just under the compact header (86px desktop, 46px phone). In the hero, nothing is active. CODE stays active through the closing call to action.
+- A second IntersectionObserver tracks the sections. The active section is the last one whose top has passed a line just under the compact header (86px desktop, 46px phone). In the hero, nothing is active. USES stays active through the closing call to action.
 - The active section's nav button gets `aria-current="location"`.
 - **Clicking a nav button** sets `aria-current` on the target immediately and smooth-scrolls to it (instant with reduced motion). Section-observer updates are suppressed until `scrollend`, with a 1s timeout fallback, so passing through intermediate sections doesn't flash them.
-- Anchors (`#why`, `#how`, `#code`) have `scroll-margin-top` equal to the compact header height.
+- Anchors (`#why`, `#how`, `#uses`) have `scroll-margin-top` equal to the compact header height.
 
 **Nav button states.** Each header defines `--grow-selected`, the distance from a button's bottom to the butter bar's bottom edge. `--grow-hover` is `calc(var(--grow-selected) / 2)`.
 
@@ -211,6 +211,11 @@ Added after the plan:
 
 - The hero keeps the code panel. A schematic lockup (`site/src/assets/hero-lockup@3x.{jxl,webp,png}`) was tried and set aside because it was awkward across sizes; the images stay in the repo, unused. The "Get started" and install row now sits below both the copy and the code panel (2026-10-17).
 - The landing page is capped at `--page-max` (1440px, in `tokens.css`) with auto side margins. The docs stay full width (2026-10-17).
+- The page is being restructured as What / Why / How / Uses (2026-10-17):
+  - **What** is the hero. The logo links to it, so it has no nav button.
+  - **Why** becomes a prose and diagram explanation of the idea, with little code. Hard-wired dependencies (globals, imports) need patching to configure or test. Passing arguments fixes that for one level but not for dependencies of dependencies. Hypospray's `inject()` defaults let an override provided at the root reach whoever asked for it. The diagram is a three-level dependency tree drawn three ways: hard-wired, threaded through arguments, and injected.
+  - **How** takes over the with/without walkthrough (`CompareTabs` with literate notes). It opens with install and closes on "or just pass an argument". The example grows to two levels with three sides (Without, Arguments, Hypospray), so it shows the transitive case.
+  - **Uses** (renamed from CODE, with `--code` tokens renamed `--uses`) keeps the recipe tabs. Their captions should lead with the situation ("In a test…").
 
 Open items:
 

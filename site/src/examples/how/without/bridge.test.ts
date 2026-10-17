@@ -1,17 +1,19 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { createCaptainsLog } from './captains-log';
+import { createBridge } from './bridge';
 
 // Forget this and later tests inherit the fake clock.
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('stamps each entry with the stardate', () => {
+test('logs each arrival with the stardate', () => {
   // Fakes the clock for the whole ship.
   vi.stubGlobal('StarDate', { now: () => 41153.7 });
 
-  const log = createCaptainsLog();
+  const bridge = createBridge();
 
-  expect(log('Engage.')).toContain('stardate 41153.7');
+  expect(bridge.arrive('Farpoint Station')).toContain(
+    'stardate 41153.7',
+  );
 });
