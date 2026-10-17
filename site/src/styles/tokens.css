@@ -27,8 +27,8 @@
   --why-dim: var(--palette-lilac-dim);
   --how: var(--palette-periwinkle);
   --how-dim: var(--palette-periwinkle-dim);
-  --code: var(--palette-sky);
-  --code-dim: var(--palette-sky-dim);
+  --uses: var(--palette-sky);
+  --uses-dim: var(--palette-sky-dim);
   --docs: var(--palette-peach);
   --hero-dim: var(--palette-amber-dim);
   --text: var(--palette-cream);
@@ -42,6 +42,7 @@
   --font-code: var(--font-jetbrains), 'JetBrains Mono', monospace;
 
   --motion: 200ms ease;
+  --page-max: 1440px;
   color-scheme: dark;
 }
 

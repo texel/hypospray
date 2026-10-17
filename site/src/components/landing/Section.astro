@@ -17,15 +17,13 @@ const { id, name, hue, dim, last = false } = Astro.props;
 >
   <div class="segment" aria-hidden="true"></div>
   <div class="content">
-    {
-      name && (
-        <div class="head">
-          <p class="name" id={`${id}-name`}>
-            {name}
-          </p>
-        </div>
-      )
-    }
+    {name && (
+      <div class="head">
+        <p class="name" id={`${id}-name`}>
+          {name}
+        </p>
+      </div>
+    )}
     <slot />
   </div>
 </section>

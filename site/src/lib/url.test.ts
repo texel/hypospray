@@ -31,7 +31,7 @@ describe('withBase', () => {
   });
 
   it('leaves bare anchors and external URLs untouched', () => {
-    expect(withBase('#code', '/hypospray')).toBe('#code');
+    expect(withBase('#uses', '/hypospray')).toBe('#uses');
     expect(withBase('https://github.com/texel/hypospray', '/hypospray')).toBe(
       'https://github.com/texel/hypospray',
     );

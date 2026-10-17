@@ -1,6 +1,8 @@
 ---
 import { Font } from 'astro:assets';
+
 import { withBase } from '../lib/url';
+
 import '../styles/tokens.css';
 
 interface Props {
@@ -45,8 +47,14 @@ const { title, description } = Astro.props;
     }
   }
   body {
-    margin: 0;
+    max-width: var(--page-max);
+    margin: 0 auto;
     background: var(--bg);
+  }
+  /* The header is fixed, so it's placed against the viewport and needs the same cap as the body. */
+  .lcars-header {
+    max-width: var(--page-max);
+    margin-inline: auto;
   }
   *,
   *::before,

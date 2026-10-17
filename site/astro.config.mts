@@ -20,7 +20,7 @@ export default defineConfig({
       provider: fontProviders.fontsource(),
       name: 'Barlow Semi Condensed',
       cssVariable: '--font-barlow',
-      weights: [400],
+      weights: [400, 700],
       styles: ['normal'],
       subsets: ['latin'],
       fallbacks: ['sans-serif'],

@@ -1,24 +1,29 @@
 ---
 // oxlint-disable import/default -- Vite's `?raw` imports have a default export the import resolver can't see.
-import { Image } from 'astro:assets';
-import heroSchematic from '../assets/hero-schematic.png';
-import Header from '../components/lcars/Header.astro';
-import NavButton from '../components/lcars/NavButton.astro';
 import Button from '../components/landing/Button.astro';
 import CodePanel from '../components/landing/CodePanel.astro';
 import CodeTabs from '../components/landing/CodeTabs.astro';
+import CompareTabs from '../components/landing/CompareTabs.astro';
 import Dock from '../components/landing/Dock.astro';
+import InlineMarkdown from '../components/landing/InlineMarkdown.astro';
 import InstallChip from '../components/landing/InstallChip.astro';
 import Section from '../components/landing/Section.astro';
-import Landing from '../layouts/Landing.astro';
+import Header from '../components/lcars/Header.astro';
+import NavButton from '../components/lcars/NavButton.astro';
 import captainsLog from '../examples/captains-log.ts?raw';
 import codeBorg from '../examples/code-borg.ts?raw';
 import codeClock from '../examples/code-clock.ts?raw';
 import codeHolodeck from '../examples/code-holodeck.ts?raw';
 import codeMenu from '../examples/code-menu.ts?raw';
 import howOverride from '../examples/how-override.ts?raw';
-import whyWith from '../examples/why-with.ts?raw';
-import whyWithout from '../examples/why-without.ts?raw';
+import withLogTest from '../examples/why/with/captains-log.test.ts?raw';
+import withLog from '../examples/why/with/captains-log.ts?raw';
+import { Content as WithNotes } from '../examples/why/with/notes.md';
+import withStardate from '../examples/why/with/stardate.ts?raw';
+import withoutLogTest from '../examples/why/without/captains-log.test.ts?raw';
+import withoutLog from '../examples/why/without/captains-log.ts?raw';
+import { Content as WithoutNotes } from '../examples/why/without/notes.md';
+import Landing from '../layouts/Landing.astro';
 import { stardate } from '../lib/stardate';
 import { withBase } from '../lib/url';
 
@@ -29,18 +34,18 @@ const github = 'https://github.com/texel/hypospray';
 const benefits = [
   {
     hue: 'var(--frame)',
-    title: 'Plain functions and classes',
-    body: 'No decorators, no tokens, no registration. A function is its own token, and inject() is just a default parameter.',
+    title: "It's just functions",
+    body: 'No decorators, and type inference is automatic. You can even use it with plain JavaScript projects.',
   },
   {
     hue: 'var(--why)',
-    title: 'Override anywhere',
-    body: 'Pin the clock in a test, swap a service per environment. A provider replaces a dependency without touching its callers.',
+    title: 'Override with confidence',
+    body: `Pin the clock in a test, swap a service per environment, or customize the behavior of a 3rd party library. \n\nMoving or changing imported files won't silently break your tests.`,
   },
   {
-    hue: 'var(--code)',
-    title: 'Scoped by design',
-    body: 'Child injectors override their parent without changing it, so a test, a request or a holodeck gets its own world.',
+    hue: 'var(--uses)',
+    title: 'High tech features',
+    body: 'Hypospray supports hierarchical injectors, and integrates with your favorite frameworks. \n\nIt has a small footprint and no runtime dependencies.',
   },
 ];
 
@@ -48,22 +53,22 @@ const steps = [
   {
     n: 1,
     hue: 'var(--frame)',
-    title: 'Write',
-    body: "Write a dependency as an ordinary function or class. It's its own token.",
+    title: 'Provide',
+    body: 'Write a dependency as an ordinary function or class.',
     code: captainsLog,
     region: 'write',
   },
   {
     n: 2,
     hue: 'var(--why)',
-    title: 'Inject',
-    body: 'Ask for it with inject(), as a default parameter. The type comes with it.',
+    title: 'Consume',
+    body: 'Ask for it with `inject()`. The type is automatically inferred.',
     code: captainsLog,
     region: 'inject',
   },
   {
     n: 3,
-    hue: 'var(--code)',
+    hue: 'var(--uses)',
     title: 'Override',
     body: 'Provide a different value to any injector. Callers never know.',
     code: howOverride,
@@ -114,82 +119,112 @@ const tabs = [
   <Header slot="header" homeHref="#">
     <NavButton href="#why" section="why" hue="var(--why)" label="WHY" />
     <NavButton href="#how" section="how" hue="var(--how)" label="HOW" />
-    <NavButton href="#code" section="code" hue="var(--code)" label="CODE" />
+    <NavButton href="#uses" section="uses" hue="var(--uses)" label="USES" />
     <NavButton href={withBase('/docs/')} hue="var(--docs)" label="DOCS" />
   </Header>
 
-  <div class="hdr-spacer"><div data-header-sentinel></div></div>
+  <div class="hdr-spacer">
+    <div data-header-sentinel></div>
+  </div>
 
   <Section id="hero" hue="var(--frame)" dim="var(--hero-dim)">
     <div class="hero">
-      <div>
+      <div class="hero-copy">
         <h1>Painless dependency injection for TypeScript.</h1>
         <p class="lede">
-          Hypospray wires your code together with plain functions and classes. Ask for a dependency with{' '}
-          <code>inject()</code>, swap it anywhere with a provider. No decorators, no ceremony.
+          Hypospray makes configuration and mocking easy. All the benefits of dependency injection,
+          without any of the annoying parts.
+          <br />
+          <br />
+          Because DI isn't just for Enterprise software.
         </p>
-        <div class="actions">
-          <Button href={guide}>Get started</Button>
-          <InstallChip command="npm i @hypospray/core" />
-        </div>
       </div>
-      {/* Comparing hero visuals: the schematic shows by default; add ?hero=code to the URL for the code panel. */}
-      <div class="hero-visual" data-hero-visual="schematic">
-        <Image
-          src={heroSchematic}
-          alt="Schematic of a hypospray, side and front elevations"
-          widths={[420, 840]}
-          sizes="(max-width: 1049.98px) 100vw, 420px"
-          loading="eager"
-        />
-      </div>
-      <div class="hero-visual" data-hero-visual="code" hidden>
+      <div class="hero-visual">
         <CodePanel file="captains-log.ts" code={captainsLog} region="hero" />
+      </div>
+      <div class="actions">
+        <Button href={guide}>Get started</Button>
+        <InstallChip command="npm i @hypospray/core" />
+      </div>
+
+      <div class="benefits">
+        {benefits.map((b) => (
+          <div>
+            <h3 style={`color: ${b.hue}`}>{b.title}</h3>
+            <p>
+              <InlineMarkdown text={b.body} />
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   </Section>
 
   <Section id="why" name="Why" hue="var(--why)" dim="var(--why-dim)">
-    <h2>Your code shouldn't build its own dependencies.</h2>
+    <h2>
+      Config and mocking are a pain.
+      <br />
+      We can do better.
+    </h2>
     <p class="lede wide">
-      When a function reaches for its collaborators directly, it's welded to them. Hypospray lets it ask for what it
-      needs, so whoever runs it decides what it gets.
+      Your project uses a package manager, so why are you still hard-wiring depdendencies into your
+      code?
     </p>
-    <div class="pair">
-      <CodePanel file="Without · hard-wired" code={whyWithout} region="code" />
-      <CodePanel file="With hypospray" code={whyWith} region="code" hue="var(--why)" dim="var(--why-dim)" />
-    </div>
-    <div class="benefits">
-      {
-        benefits.map((b) => (
-          <div>
-            <h3 style={`color: ${b.hue}`}>{b.title}</h3>
-            <p>{b.body}</p>
-          </div>
-        ))
-      }
+    <div class="why-compare">
+      <CompareTabs
+        label="With and without Hypospray"
+        sides={[
+          {
+            id: 'why-without',
+            key: 'without',
+            label: 'Without Hypospray',
+            hue: 'var(--frame)',
+            dim: 'var(--hero-dim)',
+            notes: WithoutNotes,
+            files: [
+              { name: 'captains-log.ts', code: withoutLog, region: 'code' },
+              { name: 'captains-log.test.ts', code: withoutLogTest },
+            ],
+          },
+          {
+            id: 'why-with',
+            key: 'with',
+            label: 'With Hypospray',
+            hue: 'var(--why)',
+            dim: 'var(--why-dim)',
+            notes: WithNotes,
+            files: [
+              { name: 'captains-log.ts', code: withLog },
+              { name: 'stardate.ts', code: withStardate, region: 'code' },
+              { name: 'captains-log.test.ts', code: withLogTest },
+            ],
+          },
+        ]}
+      />
     </div>
   </Section>
 
   <Section id="how" name="How" hue="var(--how)" dim="var(--how-dim)">
-    <h2>Write. Inject. Override.</h2>
     <div class="steps">
-      {
-        steps.map((s) => (
-          <div class="step">
-            <h3>
-              <span class="numeral" style={`color: ${s.hue}`}>{s.n}</span> {s.title}
-            </h3>
-            <p>{s.body}</p>
-            <CodePanel code={s.code} region={s.region} />
-          </div>
-        ))
-      }
+      {steps.map((s) => (
+        <div class="step">
+          <h3>
+            <span class="numeral" style={`color: ${s.hue}`}>
+              {s.n}
+            </span>{' '}
+            {s.title}
+          </h3>
+          <p>
+            <InlineMarkdown text={s.body} />
+          </p>
+          <CodePanel code={s.code} region={s.region} />
+        </div>
+      ))}
     </div>
   </Section>
 
-  <Section id="code" name="Code" hue="var(--code)" dim="var(--code-dim)" last>
-    <h2>Make it so.</h2>
+  <Section id="uses" name="Uses" hue="var(--uses)" dim="var(--uses-dim)" last>
+    <h2>More examples? Make it so.</h2>
     <CodeTabs tabs={tabs} />
     <div class="cta">
       <div>
@@ -198,8 +233,12 @@ const tabs = [
       </div>
       <div class="cta-actions">
         <Button href={guide}>Get started</Button>
-        <Button href={api} variant="secondary" hue="var(--why)">API reference</Button>
-        <Button href={github} variant="secondary" hue="var(--code)">GitHub</Button>
+        <Button href={api} variant="secondary" hue="var(--why)">
+          API reference
+        </Button>
+        <Button href={github} variant="secondary" hue="var(--uses)">
+          GitHub
+        </Button>
       </div>
     </div>
     <footer class="footer">
@@ -210,13 +249,6 @@ const tabs = [
   </Section>
 
   <Dock slot="dock" />
-  <script>
-    if (new URLSearchParams(location.search).get('hero') === 'code') {
-      for (const el of document.querySelectorAll<HTMLElement>('[data-hero-visual]')) {
-        el.hidden = el.dataset.heroVisual !== 'code';
-      }
-    }
-  </script>
 </Landing>
 
 <style is:global>
@@ -298,30 +330,36 @@ const tabs = [
   .hero {
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-    gap: 48px;
+    grid-template-areas:
+      'copy visual'
+      'actions actions'
+      'benefits benefits';
+    gap: 40px 64px;
     align-items: start;
   }
-  .hero-visual img {
-    display: block;
-    width: 100%;
-    max-width: 420px;
-    height: auto;
+  .hero-copy {
+    grid-area: copy;
+  }
+  .hero .lede {
+    margin-bottom: 0;
+  }
+  .hero-visual {
+    grid-area: visual;
   }
   .actions {
+    grid-area: actions;
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
     align-items: center;
   }
-  .pair {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px;
+  .why-compare {
     margin-bottom: 48px;
   }
   .benefits,
   .steps {
     display: grid;
+    grid-area: benefits;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 32px;
   }
@@ -369,8 +407,10 @@ const tabs = [
     color: var(--text-muted);
   }
   @media (max-width: 1049.98px) {
-    .hero,
-    .pair {
+    .hero {
+      grid-template-areas: 'copy' 'visual' 'actions' 'benefits';
+    }
+    .hero {
       grid-template-columns: minmax(0, 1fr);
     }
     .benefits,

@@ -6,10 +6,14 @@ const { command } = Astro.props;
 ---
 
 <div class="chip" data-install-chip>
-  <span class="dollar" aria-hidden="true">$</span>
+  <span class="dollar" aria-hidden="true">
+    $
+  </span>
   <code class="cmd">{command}</code>
   <button class="copy" type="button" data-command={command}>
-    <span class="label" aria-live="polite">COPY</span>
+    <span class="label" aria-live="polite">
+      COPY
+    </span>
   </button>
 </div>
 

@@ -11,17 +11,15 @@ const { href, action, hue, label, section, current } = Astro.props;
 ---
 
 <div class="nav-item" style={`--hue: ${hue}`}>
-  {
-    action ? (
-      <button class="nav-btn" type="button" data-action={action}>
-        <span class="nav-label">{label}</span>
-      </button>
-    ) : (
-      <a class="nav-btn" href={href} data-nav-section={section} aria-current={current}>
-        <span class="nav-label">{label}</span>
-      </a>
-    )
-  }
+  {action ? (
+    <button class="nav-btn" type="button" data-action={action}>
+      <span class="nav-label">{label}</span>
+    </button>
+  ) : (
+    <a class="nav-btn" href={href} data-nav-section={section} aria-current={current}>
+      <span class="nav-label">{label}</span>
+    </a>
+  )}
   <span class="seg" aria-hidden="true"></span>
 </div>
 

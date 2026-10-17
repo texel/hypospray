@@ -20,16 +20,24 @@ const { homeHref, static: isStatic = false } = Astro.props;
     <div class="lockup">
       <Title href={homeHref} />
       <nav class="rail" aria-label="Site">
-        <div class="rail-bar"><span class="top"></span><span class="seg"></span></div>
+        <div class="rail-bar">
+          <span class="top"></span>
+          <span class="seg"></span>
+        </div>
         <slot />
-        <div class="rail-end"><span class="top"></span><span class="seg"></span></div>
+        <div class="rail-end">
+          <span class="top"></span>
+          <span class="seg"></span>
+        </div>
       </nav>
     </div>
   </div>
   <div class="phone">
     <div class="ph-corner" aria-hidden="true"></div>
     <Title href={homeHref} />
-    <div class="ph-bar"><slot name="phone-actions" /></div>
+    <div class="ph-bar">
+      <slot name="phone-actions" />
+    </div>
   </div>
 </header>
 
@@ -246,69 +254,69 @@ const { homeHref, static: isStatic = false } = Astro.props;
   }
 </style>
 
-{
-  !isStatic && (
-    <script>
-      const header = document.querySelector<HTMLElement>('[data-lcars-header]:not([data-static])');
-      const sentinel = document.querySelector('[data-header-sentinel]');
-      const sections = [...document.querySelectorAll<HTMLElement>('main section[id]')];
-      const navLinks = [...document.querySelectorAll<HTMLAnchorElement>('[data-nav-section]')];
-      const phone = window.matchMedia('(max-width: 599.98px)');
-      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+{!isStatic && <script>
+  const header = document.querySelector<HTMLElement>('[data-lcars-header]:not([data-static])');
+  const sentinel = document.querySelector('[data-header-sentinel]');
+  const sections = [...document.querySelectorAll<HTMLElement>('main section[id]')];
+  const navLinks = [...document.querySelectorAll<HTMLAnchorElement>('[data-nav-section]')];
+  const phone = window.matchMedia('(max-width: 599.98px)');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-      if (header && sentinel) {
-        new IntersectionObserver(([entry]) => {
-          header.toggleAttribute('data-compact', !entry.isIntersecting && entry.boundingClientRect.top < 0);
-        }).observe(sentinel);
-      }
+  if (header && sentinel) {
+    new IntersectionObserver(([entry]) => {
+      header.toggleAttribute(
+        'data-compact',
+        !entry.isIntersecting && entry.boundingClientRect.top < 0,
+      );
+    }).observe(sentinel);
+  }
 
-      let suppressed = false;
-      let releaseTimer: number | undefined;
+  let suppressed = false;
+  let releaseTimer: number | undefined;
 
-      function select(id: string | null) {
-        for (const link of navLinks) {
-          if (id !== null && link.dataset.navSection === id) link.setAttribute('aria-current', 'location');
-          else link.removeAttribute('aria-current');
-        }
-      }
+  function select(id: string | null) {
+    for (const link of navLinks) {
+      if (id !== null && link.dataset.navSection === id)
+        link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    }
+  }
 
-      // A 1px detection line just under the compact header; the section crossing it is active.
-      let sectionObserver: IntersectionObserver | undefined;
-      function observeSections() {
-        sectionObserver?.disconnect();
-        const line = phone.matches ? 46 : 86;
-        sectionObserver = new IntersectionObserver(
-          (entries) => {
-            if (suppressed) return;
-            const hit = entries.find((entry) => entry.isIntersecting);
-            if (!hit) return; // between sections or past the last one: keep the current selection
-            const id = hit.target.id;
-            select(navLinks.some((link) => link.dataset.navSection === id) ? id : null);
-          },
-          { rootMargin: `-${line}px 0px -${window.innerHeight - line - 1}px 0px` },
-        );
-        for (const section of sections) sectionObserver.observe(section);
-      }
-      observeSections();
-      window.addEventListener('resize', observeSections);
-      phone.addEventListener('change', observeSections);
+  // A 1px detection line just under the compact header; the section crossing it is active.
+  let sectionObserver: IntersectionObserver | undefined;
+  function observeSections() {
+    sectionObserver?.disconnect();
+    const line = phone.matches ? 46 : 86;
+    sectionObserver = new IntersectionObserver(
+      (entries) => {
+        if (suppressed) return;
+        const hit = entries.find((entry) => entry.isIntersecting);
+        if (!hit) return; // between sections or past the last one: keep the current selection
+        const id = hit.target.id;
+        select(navLinks.some((link) => link.dataset.navSection === id) ? id : null);
+      },
+      { rootMargin: `-${line}px 0px -${window.innerHeight - line - 1}px 0px` },
+    );
+    for (const section of sections) sectionObserver.observe(section);
+  }
+  observeSections();
+  window.addEventListener('resize', observeSections);
+  phone.addEventListener('change', observeSections);
 
-      function release() {
-        suppressed = false;
-        window.clearTimeout(releaseTimer);
-      }
+  function release() {
+    suppressed = false;
+    window.clearTimeout(releaseTimer);
+  }
 
-      for (const link of navLinks) {
-        link.addEventListener('click', () => {
-          const id = link.dataset.navSection;
-          if (!id) return;
-          select(id);
-          suppressed = true;
-          window.clearTimeout(releaseTimer);
-          releaseTimer = window.setTimeout(release, reduced.matches ? 0 : 1000);
-          window.addEventListener('scrollend', release, { once: true });
-        });
-      }
-    </script>
-  )
-}
+  for (const link of navLinks) {
+    link.addEventListener('click', () => {
+      const id = link.dataset.navSection;
+      if (!id) return;
+      select(id);
+      suppressed = true;
+      window.clearTimeout(releaseTimer);
+      releaseTimer = window.setTimeout(release, reduced.matches ? 0 : 1000);
+      window.addEventListener('scrollend', release, { once: true });
+    });
+  }
+</script>}

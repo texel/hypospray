@@ -209,11 +209,11 @@ The plan (`2026-10-08-site-plan.md`) is fully implemented on `leigh/marketing-si
 
 Added after the plan:
 
-- A hero schematic image (`site/src/assets/hero-schematic.png`) is now the default hero visual. `?hero=code` shows the original code panel instead, for comparison.
+- The hero keeps the code panel. A schematic lockup (`site/src/assets/hero-lockup@3x.{jxl,webp,png}`) was tried and set aside because it was awkward across sizes; the images stay in the repo, unused. The "Get started" and install row now sits below both the copy and the code panel (2026-10-17).
+- The landing page is capped at `--page-max` (1440px, in `tokens.css`) with auto side margins. The docs stay full width (2026-10-17).
 
 Open items:
 
-- Choose a hero visual, then delete the other `hero-visual` block and the `?hero=` script in `site/src/pages/index.astro`.
 - On phone docs pages, Starlight's menu toggle sits below the LCARS bar instead of in it.
 - The code panel's frame title bar renders orange. Check it against the designs.
 - Starlight's "On this page" heading uses Barlow. It should probably use the display font (Antonio).

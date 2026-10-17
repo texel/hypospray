@@ -1,0 +1,240 @@
+---
+import type { MarkdownInstance } from 'astro';
+
+import FileTabs from './FileTabs.astro';
+
+interface File {
+  name: string;
+  code: string;
+  region?: string;
+}
+interface Side {
+  id: string;
+  /** What notes links call this side (`#with/…`); matches its example folder name. */
+  key: string;
+  label: string;
+  files: File[];
+  /** Prose shown above the files, e.g. a Markdown file's `Content`. */
+  notes?: MarkdownInstance<Record<string, never>>['Content'];
+  hue: string;
+  dim: string;
+}
+interface Props {
+  /** Names the tab set for screen readers. */
+  label: string;
+  sides: Side[];
+}
+const { label, sides } = Astro.props;
+---
+
+<div
+  class="compare"
+  style={sides.map((side, i) => `--dim-${i}: ${side.dim}`).join('; ')}
+  data-compare-tabs
+>
+  <div class="tablist" role="tablist" aria-label={label}>
+    {sides.map((side, i) => (
+      <button
+        class="tab"
+        type="button"
+        role="tab"
+        id={`${side.id}-tab`}
+        aria-controls={`${side.id}-panel`}
+        data-side={side.key}
+        aria-selected={i === 0 ? 'true' : 'false'}
+        tabindex={i === 0 ? 0 : -1}
+        style={`--hue: ${side.hue}; --dim: ${side.dim}`}
+      >
+        {side.label}
+      </button>
+    ))}
+    <span class="fill" aria-hidden="true"></span>
+  </div>
+  {sides.map((side, i) => (
+    <div
+      role="tabpanel"
+      id={`${side.id}-panel`}
+      aria-labelledby={`${side.id}-tab`}
+      hidden={i !== 0}
+      style={`--hue: ${side.hue}`}
+    >
+      <div class:list={['body', { 'has-notes': side.notes }]}>
+        {side.notes && (
+          <div class="notes">
+            <side.notes />
+          </div>
+        )}
+        <FileTabs
+          id={side.id}
+          title={side.label}
+          hideTitle
+          files={side.files}
+          hue={side.hue}
+          dim={side.dim}
+        />
+      </div>
+    </div>
+  ))}
+</div>
+
+<style>
+  [role='tabpanel'] {
+    container-type: inline-size;
+    background: var(--panel);
+  }
+  .notes {
+    max-width: 72ch;
+    padding: 16px 16px 4px;
+  }
+  /*
+   * Notes on the left, code on the right with 2/3 of the width. The widest example renders at
+   * about 610px, which a 2/3 column only gets from a ~915px panel; narrower, the notes stack on top.
+   * Re-measure if an example grows a longer line.
+   */
+  @container (min-width: 920px) {
+    .body.has-notes {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+      align-items: start;
+    }
+    .notes {
+      padding-bottom: 16px;
+    }
+  }
+  .notes :global(p) {
+    margin: 0 0 12px;
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--text-body);
+  }
+  .notes :global(code) {
+    font-family: var(--font-code);
+    font-size: 0.85em;
+    color: var(--docs);
+  }
+  .notes :global(a) {
+    color: inherit;
+    text-decoration-color: var(--hue);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+  @media (hover: hover) {
+    .notes :global(a:hover) {
+      color: var(--text);
+    }
+  }
+  .tablist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .tab {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    min-width: 160px;
+    height: 44px;
+    padding: 0 7px 5px;
+    border: 0;
+    background: var(--dim);
+    color: var(--hue);
+    font-family: var(--font-display);
+    font-size: 16px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition:
+      background-color var(--motion),
+      color var(--motion);
+  }
+  .tab[aria-selected='true'] {
+    background: var(--hue);
+    color: var(--bg);
+  }
+  /* Runs the bar to the right edge in the selected side's dim, ending in a cap like the header's. */
+  .fill {
+    flex: 1;
+    min-width: 44px;
+    height: 44px;
+    border-radius: 0 22px 22px 0;
+    background: var(--dim-0);
+    transition: background-color var(--motion);
+  }
+  .tablist:has(> .tab:nth-child(2)[aria-selected='true']) > .fill {
+    background: var(--dim-1);
+  }
+  @media (hover: hover) {
+    .tab:hover:not([aria-selected='true']) {
+      background: color-mix(in oklab, var(--dim), var(--text) 15%);
+    }
+  }
+  .tab:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tab,
+    .fill {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { findText, flashRange } from '../../lib/code-flash';
+  import { parseNoteLink } from '../../lib/note-links';
+  import { wireTabs } from '../../lib/tabs';
+
+  for (const tablist of document.querySelectorAll<HTMLElement>(
+    '[data-compare-tabs] > [role="tablist"]',
+  )) {
+    wireTabs(tablist);
+  }
+
+  // Notes links (see parseNoteLink): `#stardate.ts` selects a file's tab on the same side,
+  // `#stardate.ts:StarDate.now()` also flashes that code, and a `with/` prefix switches side first.
+  for (const link of document.querySelectorAll<HTMLAnchorElement>(
+    '[data-compare-tabs] .notes a[href^="#"]',
+  )) {
+    const target = parseNoteLink(link.getAttribute('href') ?? '');
+    if (!target) continue;
+
+    const sideTab =
+      target.side === undefined
+        ? undefined
+        : link
+            .closest('[data-compare-tabs]')
+            ?.querySelector<HTMLButtonElement>(
+              `:scope > [role="tablist"] [data-side="${CSS.escape(target.side)}"]`,
+            );
+    if (target.side !== undefined && !sideTab) continue;
+
+    const sidePanel = sideTab
+      ? document.getElementById(sideTab.getAttribute('aria-controls') ?? '')
+      : link.closest('[role="tabpanel"]');
+    const fileTab =
+      target.file === undefined
+        ? undefined
+        : sidePanel?.querySelector<HTMLButtonElement>(
+            `[role="tab"][data-file="${CSS.escape(target.file)}"]`,
+          );
+    if (target.file !== undefined && !fileTab) continue;
+
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      sideTab?.click();
+      fileTab?.click();
+      // Keyboard activation (detail 0) moves focus to the tab; a mouse click leaves it on the link,
+      // so the tab doesn't pick up a focus ring.
+      if (event.detail === 0) (fileTab ?? sideTab)?.focus({ preventScroll: true });
+      if (!fileTab || target.text === undefined) return;
+
+      const pre = document
+        .getElementById(fileTab.getAttribute('aria-controls') ?? '')
+        ?.querySelector<HTMLElement>('pre');
+      const range = pre && findText([...pre.querySelectorAll('.ec-line')], target.text);
+      if (pre && range) flashRange(range, pre);
+    });
+  }
+</script>

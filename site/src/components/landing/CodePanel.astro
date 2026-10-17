@@ -1,5 +1,6 @@
 ---
 import { Code } from 'astro-expressive-code/components';
+
 import { extractRegion } from '../../lib/region';
 
 interface Props {
@@ -14,15 +15,15 @@ const source = extractRegion(code, region);
 ---
 
 <figure class="panel" style={`--hue: ${hue}; --dim: ${dim}`}>
-  {
-    file && (
-      <figcaption class="bar">
-        <span class="file">{file}</span>
-        <slot name="action" />
-      </figcaption>
-    )
-  }
-  <div class="body"><Code code={source} lang="ts" frame="none" /></div>
+  {file && (
+    <figcaption class="bar">
+      <span class="file">{file}</span>
+      <slot name="action" />
+    </figcaption>
+  )}
+  <div class="body">
+    <Code code={source} lang="ts" frame="none" />
+  </div>
 </figure>
 
 <style>

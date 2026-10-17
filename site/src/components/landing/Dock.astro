@@ -4,7 +4,7 @@ import { withBase } from '../../lib/url';
 const items = [
   { href: '#why', section: 'why', hue: 'var(--why)', label: 'WHY' },
   { href: '#how', section: 'how', hue: 'var(--how)', label: 'HOW' },
-  { href: '#code', section: 'code', hue: 'var(--code)', label: 'CODE' },
+  { href: '#uses', section: 'uses', hue: 'var(--uses)', label: 'USES' },
   { href: withBase('/docs/'), hue: 'var(--docs)', label: 'DOCS' },
 ];
 ---
@@ -17,16 +17,20 @@ const items = [
         fill="none"
         stroke="var(--bg)"
         stroke-width="3"
-        stroke-linecap="square"></path>
+        stroke-linecap="square"
+      ></path>
     </svg>
   </button>
-  {
-    items.map((item) => (
-      <a class="dock-btn" href={item.href} data-nav-section={item.section} style={`--hue: ${item.hue}`}>
-        <span>{item.label}</span>
-      </a>
-    ))
-  }
+  {items.map((item) => (
+    <a
+      class="dock-btn"
+      href={item.href}
+      data-nav-section={item.section}
+      style={`--hue: ${item.hue}`}
+    >
+      <span>{item.label}</span>
+    </a>
+  ))}
 </nav>
 
 <style>

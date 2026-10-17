@@ -1,8 +1,9 @@
 ---
 import Search from '@astrojs/starlight/components/Search.astro';
+
+import { withBase } from '../../lib/url';
 import LcarsHeader from '../lcars/Header.astro';
 import NavButton from '../lcars/NavButton.astro';
-import { withBase } from '../../lib/url';
 
 const path = Astro.url.pathname;
 const guideHref = withBase('/docs/getting-started/');
@@ -13,12 +14,21 @@ const onApi = path.startsWith(withBase('/docs/reference/'));
 
 <LcarsHeader homeHref={withBase('/')} static>
   <NavButton action="search" hue="var(--frame)" label="SEARCH" />
-  <NavButton href={guideHref} hue="var(--docs)" label="GUIDE" current={onGuide ? 'page' : undefined} />
+  <NavButton
+    href={guideHref}
+    hue="var(--docs)"
+    label="GUIDE"
+    current={onGuide ? 'page' : undefined}
+  />
   <NavButton href={apiHref} hue="var(--why)" label="API" current={onApi ? 'page' : undefined} />
-  <NavButton href="https://github.com/texel/hypospray" hue="var(--code)" label="GITHUB" />
-  <button slot="phone-actions" class="phone-search" type="button" data-action="search">SEARCH</button>
+  <NavButton href="https://github.com/texel/hypospray" hue="var(--uses)" label="GITHUB" />
+  <button slot="phone-actions" class="phone-search" type="button" data-action="search">
+    SEARCH
+  </button>
 </LcarsHeader>
-<div class="search-host"><Search /></div>
+<div class="search-host">
+  <Search />
+</div>
 
 <script>
   // Proxies for Starlight's (hidden) search trigger. Stop the click here: Starlight closes the

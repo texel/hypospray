@@ -9,7 +9,7 @@ allowBuilds:
 # Reference from a package.json as `"vite": "catalog:"`.
 catalog:
   '@types/node': ^26.2.0
-  oxfmt: ^0.64.0
+  oxfmt: ^0.73.0
   oxlint: ^1.79.0
   typescript: ^7.0.2
   vite: ^8.2.2
