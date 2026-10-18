@@ -4,11 +4,11 @@ import Button from '../components/landing/Button.astro';
 import CodePanel from '../components/landing/CodePanel.astro';
 import CodeTabs from '../components/landing/CodeTabs.astro';
 import CompareTabs from '../components/landing/CompareTabs.astro';
-import DependencyDiagram from '../components/landing/DependencyDiagram.astro';
 import Dock from '../components/landing/Dock.astro';
 import InlineMarkdown from '../components/landing/InlineMarkdown.astro';
 import InstallChip from '../components/landing/InstallChip.astro';
 import Section from '../components/landing/Section.astro';
+import WhyStory from '../components/landing/WhyStory.astro';
 import Header from '../components/lcars/Header.astro';
 import NavButton from '../components/lcars/NavButton.astro';
 import captainsLog from '../examples/captains-log.ts?raw';
@@ -55,33 +55,40 @@ const benefits = [
   },
 ];
 
-const ways = [
+const beats = [
   {
-    variant: 'hard-wired',
-    hue: 'var(--frame)',
-    dim: 'var(--hero-dim)',
-    title: 'Hard-wired',
+    state: 'imports',
+    title: 'Your app is a graph',
+    body: "Services lean on other services, and components use them. Usually, imports hold it all together: import `<Bridge>`, and the crew, the captain's log, the API client and its config all come along for the ride.\n\nThat's convenient, right up until you need any of it to be different.",
     label:
-      "The test stubs the global stardate, which the captain's log reads directly. The next test reads the same global.",
-    body: 'The log reads the global clock itself. To fake it, a test replaces the clock for everyone, and has to put it back before the next test runs.',
+      "A dependency graph. Bridge imports the captain's log and the crew, which both import the subspace API, which imports the config. Everything behind Bridge is highlighted.",
   },
   {
-    variant: 'arguments',
-    hue: 'var(--why)',
-    dim: 'var(--why-dim)',
-    title: 'Arguments',
+    state: 'mocks',
+    title: 'Graphs are hard to change',
+    body: "Tests want a fresh crew, or a fake one. Another build wants a different config. Imports can't do that, so we reach for mocks, and mocks match by path.\n\n`vi.mock('./crew')` catches files that import `./crew`, but not one that imports the same file as `../crew`. Move a file, and your mocks quietly stop working.",
     label:
-      "The test builds the captain's log with a fake stardate and passes it to the bridge, reaching every layer.",
-    body: 'Pass the clock in, and the log is easy to test. But the bridge builds its own log, so the test has to build one for it. Every layer between the test and the clock is one more thing it has to know about.',
+      "Bridge and the captain's log import crew by one path and get the mock. Quarters imports it by another path and gets the real crew.",
   },
   {
-    variant: 'hypospray',
-    hue: 'var(--how)',
-    dim: 'var(--how-dim)',
-    title: 'Hypospray',
+    state: 'wiring',
+    title: 'Pass it in instead',
+    body: "Dependency injection means passing your dependencies in as arguments, from the outside. That's it. That's the whole concept.\n\nBut now something has to build the graph: the config, then the API, then the crew, then the log… in the right order, every time, whether the screen needs them or not.",
     label:
-      'The test provides a fake stardate to the injector once. The bridge, log and stardate all ask the injector for what they need.',
-    body: 'Each function asks the injector for what it needs. The test hands the injector a fake clock once, and it reaches the log however deep it is.',
+      'Every service is built by hand, numbered one to five in the order they must be created, all at startup.',
+  },
+  {
+    state: 'inject',
+    title: 'Let Hypospray build it',
+    body: 'With Hypospray, each function asks for what it needs with `inject()`. Ask an injector for `<Bridge>`, and it walks the graph for you, building what the bridge needs, once, in the right order.\n\nThe replicator stays offline until someone asks for it.',
+    label:
+      "Only Bridge and what it depends on are built: the captain's log, crew, subspace API and config. The replicator and quarters are never created.",
+  },
+  {
+    state: 'override',
+    title: 'Change anything, anywhere',
+    body: 'Provide a mock crew to an injector, and everything that asks for crew gets it, however deep it is. No paths to match, and nothing to clean up.\n\nAnd because `inject()` is just a default parameter, you can always pass arguments yourself.',
+    label: "A mock crew replaces the real one, and both Bridge and the captain's log receive it.",
   },
 ] as const;
 
@@ -179,31 +186,9 @@ const tabs = [
       Your project uses a package manager, so why are you still hard-wiring dependencies into your
       code?
     </p>
-    <p class="why-intro">
-      Most code reaches straight for what it needs: a global, an import, a <code>new</code>. That
-      works until you want something different there, like a fixed clock in a test or a different
-      API in staging. Here's a captain's log that stamps each entry with the stardate, used by the
-      bridge, and three ways a test can give it a fake clock.
-    </p>
-    <ol class="ways">
-      {ways.map((way) => (
-        <li class="way" style={`--hue: ${way.hue}; --dim: ${way.dim}`}>
-          <figure>
-            <div class="way-art">
-              <DependencyDiagram variant={way.variant} label={way.label} />
-            </div>
-            <figcaption>
-              <h3>{way.title}</h3>
-              <p>
-                <InlineMarkdown text={way.body} />
-              </p>
-            </figcaption>
-          </figure>
-        </li>
-      ))}
-    </ol>
+    <WhyStory beats={beats} />
     <p class="why-outro">
-      <a href="#how">See all three in code</a>
+      <a href="#how">See it in code</a>
     </p>
   </Section>
 
@@ -400,39 +385,8 @@ const tabs = [
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 32px;
   }
-  .why-intro {
-    max-width: 68ch;
-    margin: 0 0 40px;
-  }
-  .why-intro code {
-    font-family: var(--font-code);
-    font-size: 0.85em;
-    color: var(--docs);
-  }
-  .ways {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 32px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .way figure {
-    margin: 0;
-  }
-  .way-art {
-    padding: 24px 20px;
-    background: var(--panel);
-  }
-  .way h3 {
-    margin-top: 20px;
-    color: var(--hue);
-  }
-  .way p {
-    margin: 0;
-  }
   .why-outro {
-    margin: 40px 0 0;
+    margin: 56px 0 0;
   }
   .why-outro a {
     color: var(--text);
@@ -490,10 +444,6 @@ const tabs = [
     }
     .benefits {
       grid-template-columns: minmax(0, 1fr);
-    }
-    .ways {
-      grid-template-columns: minmax(0, 1fr);
-      max-width: 440px;
     }
   }
   @media (max-width: 599.98px) {

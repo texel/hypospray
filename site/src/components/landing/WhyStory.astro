@@ -1,0 +1,148 @@
+---
+import InlineMarkdown from './InlineMarkdown.astro';
+import WhyGraph, { type GraphState } from './WhyGraph.astro';
+
+/**
+ * Prose beats beside one sticky graph. As each beat scrolls past the middle of the viewport, the
+ * graph switches to that beat's state. Scrolling itself is never touched: the page moves as
+ * usual and the graph just follows along.
+ *
+ * Every beat also carries its own static copy of the graph, shown instead of the sticky one on
+ * narrow screens and before (or without) the script.
+ */
+interface Beat {
+  state: GraphState;
+  title: string;
+  /** Inline Markdown; blank lines start a new paragraph. */
+  body: string;
+  /** What the graph shows, for screen readers. */
+  label: string;
+}
+interface Props {
+  beats: readonly Beat[];
+}
+const { beats } = Astro.props;
+const first = beats[0]?.state ?? 'imports';
+---
+
+<div class="story" data-why-story>
+  <div class="beats">
+    {beats.map((beat, i) => (
+      <section class="beat" data-beat={beat.state} data-active={i === 0 ? '' : undefined}>
+        <h3>{beat.title}</h3>
+        {beat.body.split(/\n\s*\n/).map((para) => (
+          <p>
+            <InlineMarkdown text={para.trim()} />
+          </p>
+        ))}
+        <div class="art">
+          <WhyGraph id={`why-${beat.state}`} state={beat.state} label={beat.label} />
+        </div>
+      </section>
+    ))}
+  </div>
+  <div class="stage" aria-hidden="true">
+    <div class="stage-art">
+      <WhyGraph id="why-stage" state={first} />
+    </div>
+  </div>
+</div>
+
+<style>
+  .beat h3 {
+    margin: 0 0 8px;
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: var(--hue);
+  }
+  .beat p {
+    margin: 0 0 12px;
+    max-width: 52ch;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+  .beat :global(code) {
+    font-family: var(--font-code);
+    font-size: 0.85em;
+    color: var(--docs);
+  }
+  .art,
+  .stage-art {
+    padding: 20px;
+    background: var(--panel);
+  }
+  .art {
+    max-width: 440px;
+    margin: 20px 0 48px;
+  }
+  .stage {
+    display: none;
+  }
+
+  /*
+   * Side by side once the script is running and there's room. Beats are spaced so each gets a
+   * comfortable stretch of scrolling with its picture, but they're still ordinary paragraphs.
+   */
+  @media (min-width: 1050px) {
+    .story[data-live] {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+      gap: 64px;
+    }
+    .story[data-live] .art {
+      display: none;
+    }
+    .story[data-live] .beat {
+      padding: 4px 0 4px 20px;
+      border-left: 4px solid var(--rule);
+      margin-bottom: 14vh;
+      transition: border-color var(--motion);
+    }
+    .story[data-live] .beat:last-child {
+      margin-bottom: 0;
+    }
+    .story[data-live] .beat[data-active] {
+      border-left-color: var(--hue);
+    }
+    .story[data-live] .stage {
+      display: block;
+      position: sticky;
+      top: max(110px, calc(50vh - 260px));
+      align-self: start;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .beat {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  for (const story of document.querySelectorAll<HTMLElement>('[data-why-story]')) {
+    const graph = story.querySelector<SVGElement>('.stage svg');
+    const beats = [...story.querySelectorAll<HTMLElement>('[data-beat]')];
+    if (!graph || beats.length === 0) continue;
+
+    const activate = (beat: HTMLElement) => {
+      for (const other of beats) other.toggleAttribute('data-active', other === beat);
+      graph.dataset.state = beat.dataset.beat;
+    };
+
+    // A beat becomes active when it crosses a line just above the middle of the viewport. Between
+    // beats, the last one to cross stays active.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.target instanceof HTMLElement) activate(entry.target);
+        }
+      },
+      { rootMargin: '-45% 0px -55% 0px' },
+    );
+    for (const beat of beats) observer.observe(beat);
+    story.dataset.live = '';
+  }
+</script>
