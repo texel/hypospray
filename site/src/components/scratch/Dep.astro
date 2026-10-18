@@ -1,0 +1,24 @@
+---
+/** A service's icon, inline in prose: `<Dep name="config" />`. */
+import { type Dep, deps } from './deps';
+
+interface Props {
+  name: Dep;
+}
+const { name } = Astro.props;
+---
+
+<svg class="dep" viewBox="0 0 16 16" aria-hidden="true" set:html={deps[name].icon} />
+
+<style>
+  .dep {
+    width: 15px;
+    height: 15px;
+    vertical-align: -2px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+</style>

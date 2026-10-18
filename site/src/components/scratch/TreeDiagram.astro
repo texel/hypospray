@@ -1,38 +1,244 @@
 ---
+import { type Dep, deps } from './deps';
+import { CH, H, ICON, ICON_STEP, contentWidth, segment } from './text';
+
 /**
  * Lo-fi diagram for the Why scratch page: a component tree on top, the services the leaves use
- * below. Each beat passes marks, edge labels and notes to tell its part of the story.
+ * below. Each beat passes marks, edge colours, labels and notes to tell its part of the story.
+ *
+ * Colours carry a flow: a solid mark is where it starts, a soft mark is everything it reaches.
+ * Edges are keyed `from>to`.
  */
-type Mark = 'hot' | 'pass' | 'fake' | 'ghost' | 'root';
+type Tone = 'red' | 'purple' | 'orange' | 'blue' | 'green';
+/** `hidden`: not there at all yet, e.g. a service the injector hasn't built. */
+type Mark = Tone | `${Tone}-soft` | 'ghost' | 'hidden';
+type Side = 'left' | 'right' | 'below';
 interface Props {
   marks?: Record<string, Mark>;
-  /** Edges drawn heavier, keyed `from>to`. */
-  hot?: string[];
-  /** Text on an edge, keyed `from>to`. */
+  edges?: Record<string, Tone>;
+  /** Replaces a node's text, e.g. to show the props it takes. */
+  labels?: Record<string, string>;
   edgeLabels?: Record<string, string>;
-  /** Text beside a node. */
-  notes?: Record<string, string>;
-  /** Label for component→service edges, e.g. `import` or `inject()`. */
+  /** Text beside a node, on the right unless given a side; a tone colours it. */
+  notes?: Record<string, string | [string, Side] | [string, Side, Tone]>;
+  /**
+   * Labels every component→service edge (`import`, `prop`, `inject()`…). `$dep` becomes the
+   * target service's name, which gets its icon: `import { $dep }`.
+   */
   uses?: string;
+  /** Labels every service→service edge. */
+  needs?: string;
+  /** Adds a node above `<App>` for whatever builds and renders it. */
+  root?: { text: string; mark?: Mark; note?: string; title?: string };
+  /** Leaves that reach straight up to `<App>` (context), with the edge label. */
+  /** Context lookups from each leaf up to <App>; `$dep` in the label is what that leaf takes. */
+  teleport?: { from: string[]; label: string; broken?: string[] };
+  /** Draws an edge as one thin line per dependency it carries, each with its own icon. */
+  strands?: Record<string, Dep[]>;
+  /** The dependency just added: its strands, their pills and its icons in components, in green. */
+  highlight?: Dep;
+  /**
+   * `below` hangs each service under the component that uses it. `beside` moves the service graph
+   * up next to the root, framed together with it: for when the root builds everything.
+   * `injector`: the tree as an outline, one component per row like a file browser, and the
+   * service graph framed as the injector the root creates, beside it. Each service sits on the row
+   * of the component that asks for it, so `uses` edges run straight across. The frame keeps its
+   * size while services appear in it (hide the rest with `hidden`).
+   */
+  layout?: 'below' | 'beside' | 'injector';
+  /**
+   * How service nodes read. `name`: just what it is. `instance`: a file exporting a ready-made
+   * `const`, fixed at import. `factory`: a file exporting a function that makes one, so whoever
+   * calls it decides what goes in. Instances are pills, factories are clipped boxes.
+   */
+  services?: 'name' | 'instance' | 'factory';
+  /**
+   * `services`: the service graph carries the weight, on its own band; components recede to a
+   * light outline, there only to show where each service gets used.
+   */
+  focus?: 'services';
 }
-const { marks = {}, hot = [], edgeLabels = {}, notes = {}, uses } = Astro.props;
+const {
+  marks = {},
+  edges: edgeTones = {},
+  labels = {},
+  edgeLabels = {},
+  notes = {},
+  uses,
+  needs,
+  root,
+  teleport,
+  strands = {},
+  highlight,
+  layout = 'below',
+  services: serviceStyle = 'name',
+  focus,
+} = Astro.props as Props;
 
-const W = 130;
-const H = 30;
-const nodes: Record<string, { x: number; y: number; text: string; service?: boolean }> = {
-  App: { x: 330, y: 30, text: '<App>' },
-  Header: { x: 150, y: 100, text: '<Header>' },
-  Dashboard: { x: 430, y: 100, text: '<Dashboard>' },
-  UserMenu: { x: 150, y: 170, text: '<UserMenu>' },
-  OrdersTable: { x: 340, y: 170, text: '<OrdersTable>' },
-  RevenueChart: { x: 520, y: 170, text: '<RevenueChart>' },
-  AuthClient: { x: 150, y: 270, text: 'auth client', service: true },
-  OrdersApi: { x: 340, y: 270, text: 'orders api', service: true },
-  AnalyticsApi: { x: 520, y: 270, text: 'analytics api', service: true },
-  HttpClient: { x: 250, y: 345, text: 'http client', service: true },
-  Logger: { x: 520, y: 345, text: 'logger', service: true },
-  Config: { x: 380, y: 420, text: 'config', service: true },
+const depOf: Record<string, Dep> = {
+  AuthClient: 'auth',
+  OrdersApi: 'orders',
+  AnalyticsApi: 'analytics',
+  HttpClient: 'http',
+  Logger: 'logger',
+  Config: 'config',
 };
+/** The Hypospray factory each service is resolved by, for `$fn` in labels. */
+const fnOf: Record<string, string> = {
+  AuthClient: 'getAuthClient',
+  OrdersApi: 'getOrdersApi',
+  AnalyticsApi: 'getAnalyticsApi',
+  HttpClient: 'getHttpClient',
+  Logger: 'getLogger',
+  Config: 'getConfig',
+};
+const labelText = (key: string, text: string) => {
+  const target = key.split('>')[1]!;
+  return text.replaceAll('$dep', depOf[target] ?? '').replaceAll('$fn', fnOf[target] ?? '');
+};
+/** Edge labels sit in a small box over the edge: the middle, or the trunk for routed edges. */
+const LABEL_CH = 6.6;
+const LABEL_H = 16;
+const labelWidth = (text: string) =>
+  segment(text).reduce((sum, seg) => sum + ('icon' in seg ? 14 : seg.text.length * LABEL_CH), 0);
+
+/** Labels may span several lines (`\n`); those are left-aligned, like code. */
+const LINE = 20;
+const linesOf = (text: string) => text.split('\n');
+const beside = layout === 'beside';
+const injector = layout === 'injector';
+/** The service graph runs left to right, beside the tree. */
+const sideways = beside || injector;
+const width = (text: string, min = injector ? 60 : 110) =>
+  Math.max(min, Math.round(Math.max(...linesOf(text).map(contentWidth)) + 24));
+const height = (text: string) =>
+  linesOf(text).length === 1 ? H : linesOf(text).length * LINE + 12;
+const base: Record<string, { x: number; y: number; text: string; service?: boolean }> = {
+  App: { x: 340, y: 30, text: '<App>' },
+  Header: { x: 140, y: 100, text: '<Header>' },
+  Dashboard: { x: 450, y: 100, text: '<Dashboard>' },
+  UserMenu: { x: 140, y: 170, text: '<UserMenu>' },
+  OrdersTable: { x: 340, y: 170, text: '<OrdersTable>' },
+  RevenueChart: { x: 550, y: 170, text: '<RevenueChart>' },
+  AuthClient: { x: 140, y: 270, text: 'auth client', service: true },
+  OrdersApi: { x: 340, y: 270, text: 'orders api', service: true },
+  AnalyticsApi: { x: 550, y: 270, text: 'analytics api', service: true },
+  HttpClient: { x: 260, y: 345, text: 'http client', service: true },
+  Logger: { x: 550, y: 345, text: 'logger', service: true },
+  Config: { x: 400, y: 420, text: 'config', service: true },
+};
+const serviceText: Record<string, { file: string; instance: string; factory: string }> = {
+  AuthClient: {
+    file: 'auth.ts',
+    instance: 'const auth',
+    factory: '{auth} getAuthClient()',
+  },
+  OrdersApi: {
+    file: 'orders.ts',
+    instance: 'const orders',
+    factory: '{orders} getOrdersApi()',
+  },
+  AnalyticsApi: {
+    file: 'analytics.ts',
+    instance: 'const analytics',
+    factory: '{analytics} getAnalyticsApi()',
+  },
+  HttpClient: {
+    file: 'http.ts',
+    instance: 'const http',
+    factory: '{http} getHttpClient()',
+  },
+  Logger: {
+    file: 'logger.ts',
+    instance: 'const logger',
+    factory: '{logger} getLogger()',
+  },
+  Config: { file: 'config.ts', instance: 'const config', factory: '{config} getConfig()' },
+};
+const files = serviceStyle !== 'name' && !beside;
+/** File nodes: a line of code over a grey bar with the file name. */
+const BAR = 16;
+const EAR = 10;
+if (files) {
+  // Files are taller, so give the graph's rows more room.
+  // Labels sit at the top of each edge, so leave room under every row.
+  const rows: Record<number, number> = { 270: 285, 345: 415, 420: 530 };
+  for (const [id, text] of Object.entries(serviceText)) {
+    const node = base[id]!;
+    node.text = text[serviceStyle];
+    node.y = rows[node.y] ?? node.y;
+  }
+  // Out from under analytics, so its two edges leave from opposite sides.
+  base.Logger!.x = 610;
+}
+if (beside) {
+  // Tree on the left, a compact service graph on the right.
+  const moves: Record<string, [number, number, string?]> = {
+    App: [235, 30],
+    Header: [90, 120],
+    Dashboard: [400, 120],
+    UserMenu: [90, 210],
+    OrdersTable: [285, 210],
+    RevenueChart: [510, 210],
+    // Left to right, beside the root; y is relative to the root's centre.
+    AuthClient: [525, -40, 'auth'],
+    OrdersApi: [525, 0, 'orders'],
+    AnalyticsApi: [525, 40, 'analytics'],
+    HttpClient: [660, -20, 'http'],
+    // Level with analytics' lower port, so that edge runs straight.
+    Logger: [660, 49, 'logger'],
+    Config: [770, 10, 'config'],
+  };
+  for (const [id, [x, y, text]] of Object.entries(moves)) {
+    Object.assign(base[id]!, { x, y }, text ? { text } : {});
+  }
+}
+if (injector) {
+  for (const [id, text] of Object.entries(depOf)) base[id]!.text = text;
+}
+const nodes = Object.fromEntries(
+  Object.entries(base).map(([id, node]) => {
+    const text = labels[id] ?? node.text;
+    const w = width(text, sideways && node.service ? 70 : undefined);
+    const file = files && node.service;
+    return [id, { ...node, text, w, h: file ? height(text) + BAR + 2 : height(text), file }];
+  }),
+);
+// Beside: each column of the service graph left-aligned, on the left edge of its widest node.
+if (beside) {
+  const columns = Object.groupBy(
+    Object.values(nodes).filter((n) => n.service),
+    (n) => n.x,
+  );
+  for (const column of Object.values(columns)) {
+    const left = Math.min(...column!.map((n) => n.x - n.w / 2));
+    for (const node of column!) node.x = left + node.w / 2;
+  }
+}
+/** Injector: extra room inside the frame's left edge, for the arrowheads coming in. */
+const FRAME_INSET = 12;
+// A tall <App> grows upward, so the rest of the tree stays put; the root sits above it.
+const appNode = nodes.App!;
+appNode.y = 30 + H / 2 - appNode.h / 2;
+const appTop = appNode.y - appNode.h / 2;
+const rootH = root ? height(root.text) : 0;
+// Beside, the root sits in a frame, so leave room under it for what's handed to <App>.
+const ROOT_GAP = beside ? 60 : 40;
+if (root) {
+  nodes.Root = {
+    x: appNode.x,
+    y: appTop - ROOT_GAP - rootH / 2,
+    text: root.text,
+    w: width(root.text),
+    h: rootH,
+    file: false,
+  };
+  if (beside) {
+    for (const node of Object.values(nodes)) {
+      if (node.service) node.y += nodes.Root.y;
+    }
+  }
+}
 const renders = [
   'App>Header',
   'App>Dashboard',
@@ -41,7 +247,7 @@ const renders = [
   'Dashboard>RevenueChart',
 ];
 const usesEdges = ['UserMenu>AuthClient', 'OrdersTable>OrdersApi', 'RevenueChart>AnalyticsApi'];
-const needs = [
+const needsEdges = [
   'AuthClient>HttpClient',
   'OrdersApi>HttpClient',
   'AnalyticsApi>HttpClient',
@@ -49,90 +255,728 @@ const needs = [
   'HttpClient>Config',
   'Logger>Config',
 ];
+/** Injector: the outline's rows, each component's depth under the root, top to bottom. */
+const OUTLINE: [string, number][] = [
+  ['App', 1],
+  ['Header', 2],
+  ['UserMenu', 3],
+  ['Dashboard', 2],
+  ['OrdersTable', 3],
+  ['RevenueChart', 3],
+];
+/** Outline components are compact; rows sit this far apart, however tall each one is. */
+const COMPONENT_H = 22;
+const ROW_GAP = 8;
+const INDENT = 24;
+const leaves = ['UserMenu', 'OrdersTable', 'RevenueChart'];
+/**
+ * Injector: each `uses` label is drawn as a call, a bit like a Scratch block: `inject(` small on
+ * the line above, the argument indented on its own line, `)` small below, all in one container.
+ * The top line leaves room for the descender in `inject(`.
+ */
+const CALL = { indent: 8, top: 15, bottom: 15, pad: 6, radius: 5 };
+/** A row holding a call is as tall as the call. */
+const CALL_H = CALL.top + LABEL_H + CALL.bottom;
+const callOf = (text: string) => {
+  const match = /^(\w+)\((.*)\)$/s.exec(text);
+  return match ? { fn: match[1]!, arg: match[2]! } : undefined;
+};
+const pillWidth = (text: string) => labelWidth(text) + 12;
+const callWidth = (text: string) => {
+  const call = callOf(text);
+  return call ? CALL.pad * 2 + CALL.indent + pillWidth(call.arg) : pillWidth(text);
+};
+const usesWidth = uses ? Math.max(...usesEdges.map((k) => callWidth(labelText(k, uses)))) : 0;
+/** Injector: each leaf's lane up or down to its service, just outside the frame, top leaf outermost. */
+const LANE_GAP = 12;
+const laneX = (leaf: string, frameX: number) =>
+  frameX - 14 - (leaves.length - 1 - leaves.indexOf(leaf)) * LANE_GAP;
+/** Room before the frame for the lanes, past the labels. */
+const LANES = 14 + leaves.length * LANE_GAP;
+/** Gap between columns of the service graph: room for an edge to turn and run into the next. */
+const COLUMN_GAP = 40;
+if (injector) {
+  const rootNode = nodes.Root;
+  if (rootNode) Object.assign(rootNode, { x: 2 + rootNode.w / 2, y: rootNode.h / 2 });
+  let rowTop = (rootNode?.h ?? 0) + ROW_GAP;
+  for (const [id, depth] of OUTLINE) {
+    const node = nodes[id]!;
+    // A call's container gets a little more room than a bare component.
+    const rowH = uses && leaves.includes(id) ? CALL_H + 6 : COMPONENT_H;
+    Object.assign(node, {
+      x: 2 + depth * INDENT + node.w / 2,
+      y: rowTop + rowH / 2,
+      h: COMPONENT_H,
+    });
+    rowTop += rowH + ROW_GAP;
+  }
+  // Each column of the graph after the last, left-aligned, the widest of it setting the pace.
+  const column = (ids: string[], after: number) => {
+    const w = Math.max(...ids.map((id) => nodes[id]!.w));
+    for (const id of ids) nodes[id]!.x = after + nodes[id]!.w / 2;
+    return after + w;
+  };
+  const leafRight = Math.max(...leaves.map((id) => nodes[id]!.x + nodes[id]!.w / 2));
+  const apis = column(
+    ['AuthClient', 'OrdersApi', 'AnalyticsApi'],
+    leafRight + usesWidth + 30 + LANES + FRAME_INSET,
+  );
+  const mids = column(['HttpClient', 'Logger'], apis + COLUMN_GAP);
+  column(['Config'], mids + COLUMN_GAP);
+  // On the row of whoever asks for it; the rest between, logger level with analytics' lower port.
+  const at = (id: string, y: number) => (nodes[id]!.y = y);
+  at('AuthClient', nodes.UserMenu!.y);
+  at('OrdersApi', nodes.OrdersTable!.y);
+  at('AnalyticsApi', nodes.RevenueChart!.y);
+  at('HttpClient', nodes.Dashboard!.y);
+  at('Logger', nodes.AnalyticsApi!.y + nodes.AnalyticsApi!.h / 2 - 6);
+  at('Config', (nodes.HttpClient!.y + nodes.Logger!.y) / 2);
+  // Then the whole graph to the middle of the frame, which runs from the root's first line to the
+  // bottom of the tree.
+  const graph = Object.values(nodes).filter((n) => n.service);
+  const frameTop = rootNode ? rootNode.y - (rootNode.h - 12) / 2 + LINE / 2 - 24 : 0;
+  const frameBottom = nodes.RevenueChart!.y + CALL_H / 2 + 12;
+  const graphTop = Math.min(...graph.map((n) => n.y - n.h / 2));
+  const graphBottom = Math.max(...graph.map((n) => n.y + n.h / 2));
+  const shift = Math.min(0, (frameTop + frameBottom) / 2 - (graphTop + graphBottom) / 2);
+  for (const node of graph) node.y += shift;
+}
+// Beside: one frame round the root and the graph it has to follow. Injector: round every
+// service, built or not, so the frame stays put as it fills.
+const framed: (typeof nodes)[string][] = injector
+  ? Object.values(nodes).filter((n) => n.service)
+  : beside && root
+    ? Object.values(nodes).filter((n) => n.service || n === nodes.Root)
+    : [];
+const frame = framed.length
+  ? {
+      x: Math.min(...framed.map((n) => n.x - n.w / 2)) - 12 - (injector ? FRAME_INSET : 0),
+      y: Math.min(...framed.map((n) => n.y - n.h / 2)) - 12,
+      x2: Math.max(...framed.map((n) => n.x + n.w / 2)) + 12,
+      y2: Math.max(...framed.map((n) => n.y + n.h / 2)) + 12,
+    }
+  : undefined;
+/** Where the root's first line sits: in the injector layout, the line that creates it. */
+const rootLineY = nodes.Root ? nodes.Root.y - (nodes.Root.h - 12) / 2 + LINE / 2 : 0;
+// Injector: up past the root's first line too, so the arrow from it runs straight in.
+if (injector && frame && nodes.Root) {
+  frame.y = Math.min(frame.y, rootLineY - 24);
+  frame.y2 = Math.max(frame.y2, nodes.RevenueChart!.y + CALL_H / 2 + 12);
+}
 
 const line = (key: string) => {
   const [a, b] = key.split('>');
   const from = nodes[a!]!;
   const to = nodes[b!]!;
-  return { x1: from.x, y1: from.y + H / 2, x2: to.x, y2: to.y - H / 2 - 4 };
+  if ((sideways && 'service' in from && from.service) || injector) {
+    return { x1: from.x + from.w / 2, y1: from.y, x2: to.x - to.w / 2 - 4, y2: to.y };
+  }
+  return { x1: from.x, y1: from.y + from.h / 2, x2: to.x, y2: to.y - to.h / 2 - 4 };
 };
 const mid = (key: string) => {
   const l = line(key);
-  return { x: (l.x1 + l.x2) / 2 + 6, y: (l.y1 + l.y2) / 2 };
+  return { x: (l.x1 + l.x2) / 2, y: (l.y1 + l.y2) / 2 };
 };
+
+/**
+ * Service→service edges (below layout) run as vertical and horizontal segments with rounded
+ * corners: down from the source, along a channel just above the target, then into it. Edges into
+ * the same target share that last drop. Each edge is labelled where it leaves its source, so the
+ * same import or inject() shows once per file that makes it.
+ */
+type Pt = [number, number];
+const RADIUS = 8;
+/** Straight run before every arrowhead, so a tip never sits on a corner. */
+const TIP_RUN = 14;
+/** How far before a target its incoming edges turn in: a corner, the straight run, the gap. */
+const TRUNK = RADIUS + TIP_RUN + 4;
+const rounded = (pts: Pt[]) => {
+  let d = `M ${pts[0]![0]} ${pts[0]![1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [px, py] = pts[i - 1]!;
+    const [cx, cy] = pts[i]!;
+    const [nx, ny] = pts[i + 1]!;
+    const r = Math.min(RADIUS, Math.hypot(cx - px, cy - py) / 2, Math.hypot(nx - cx, ny - cy) / 2);
+    const a = [cx - Math.sign(cx - px) * r, cy - Math.sign(cy - py) * r];
+    const b = [cx + Math.sign(nx - cx) * r, cy + Math.sign(ny - cy) * r];
+    d += ` L ${a[0]} ${a[1]} Q ${cx} ${cy} ${b[0]} ${b[1]}`;
+  }
+  const last = pts.at(-1)!;
+  return `${d} L ${last[0]} ${last[1]}`;
+};
+/** A source's outgoing service edges, nearest target first. */
+const outgoing = (source: string) =>
+  needsEdges
+    .filter((k) => k.startsWith(`${source}>`))
+    .toSorted(
+      (a, b) =>
+        Math.abs(nodes[a.split('>')[1]!]!.x - nodes[source]!.x) -
+        Math.abs(nodes[b.split('>')[1]!]!.x - nodes[source]!.x),
+    );
+/** Every edge routed with corners: the tree's branches and the service graph. */
+const routedKeys = () => [...(root ? ['Root>App'] : []), ...renders, ...needsEdges];
+/**
+ * Where an edge leaves its source: the middle, unless the source has several, in which case each
+ * leaves from its own point, the one closest to its target. Edges never share a first segment, so
+ * two of them can't read as one.
+ */
+const PORT_GAP = 16;
+/** Strands of one edge sit this far apart, so each one's icon fits beside the next. */
+const STRAND_GAP = 20;
+/** How far an edge's outermost strand sits from its centre line. */
+const strandSpread = (key: string) => (((strands[key]?.length ?? 1) - 1) / 2) * STRAND_GAP;
+const port = (key: string, axis: 'x' | 'y') => {
+  const source = key.split('>')[0]!;
+  const from = nodes[source]!;
+  const target = (k: string) => nodes[k.split('>')[1]!]![axis];
+  const siblings = routedKeys()
+    .filter((k) => k.startsWith(`${source}>`))
+    .toSorted((a, b) => target(a) - target(b));
+  if (siblings.length === 1) return from[axis];
+  const half = axis === 'x' ? from.w / 2 - 12 : from.h / 2 - 6;
+  // An edge drawn as strands is as wide as its outermost pair: keep all of it inside the node.
+  const spread = (k: string) => (axis === 'x' ? strandSpread(k) : 0);
+  // In target order, each at least PORT_GAP past the one before (strands and all).
+  let prev = -Infinity;
+  let prevSpread = 0;
+  const ports = siblings.map((k) => {
+    const lo = from[axis] - half + spread(k);
+    const hi = from[axis] + half - spread(k);
+    const want = Math.min(Math.max(target(k), lo), hi);
+    prev = Math.max(want, prev + PORT_GAP + prevSpread + spread(k));
+    prevSpread = spread(k);
+    return prev;
+  });
+  return ports[siblings.indexOf(key)]!;
+};
+const portX = (key: string) => port(key, 'x');
+const strandOffsets = (key: string) => {
+  const n = strands[key]?.length ?? 1;
+  return Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * STRAND_GAP);
+};
+/**
+ * `d` shifts a strand sideways from the edge's centre line. Each strand also turns at its own
+ * height, the outer one lowest, so strands running side by side never cross.
+ */
+const routePoints = (key: string, d = 0): Pt[] => {
+  const [a, b] = key.split('>');
+  const from = nodes[a!]!;
+  const to = nodes[b!]!;
+  const inset = 12;
+  // Injector, a leaf asking for a service: across under its label, along its lane, and in.
+  if (injector && 'service' in to && to.service && !from.service && frame) {
+    const lane = laneX(a!, frame.x);
+    return [
+      [from.x + from.w / 2, from.y],
+      [lane, from.y],
+      [lane, to.y],
+      [to.x - to.w / 2 - 4, to.y],
+    ];
+  }
+  // Injector: the outline's elbows, down from the parent's first character and across.
+  if (injector && !('service' in from && from.service)) {
+    const x = from.x - from.w / 2 + 12;
+    return [
+      [x, from.y + from.h / 2],
+      [x, to.y],
+      [to.x - to.w / 2, to.y],
+    ];
+  }
+  // Beside: the service graph runs left to right, so route it the same way, turned sideways.
+  if (sideways && 'service' in from && from.service) {
+    // From inside the node, so an edge leaving off-centre still meets its rounded end.
+    const sx = from.x + from.w / 2 - from.h / 2;
+    const left = to.x - to.w / 2;
+    const py = port(key, 'y');
+    const lane = left - TRUNK;
+    return py === to.y
+      ? [
+          [sx, py],
+          [left - 4, to.y],
+        ]
+      : [
+          [sx, py],
+          [lane, py],
+          [lane, to.y],
+          [left - 4, to.y],
+        ];
+  }
+  // The tree branches from the middle of each parent, halfway down, like an org chart.
+  const tree = !('service' in from && from.service);
+  const startX = portX(key);
+  const spread = Math.max(...strandOffsets(key));
+  const sy = from.y + from.h / 2;
+  const top = to.y - to.h / 2;
+  // Turns step by half a strand gap: enough to keep them from crossing, and three strands still
+  // fit between two rows.
+  const centre = tree ? Math.min((sy + top) / 2, top - TRUNK - spread / 2) : top - TRUNK;
+  const channel = centre - (Math.sign(to.x - startX) * d) / 2;
+  const [px, tx] = [startX + d, to.x + d];
+  const pts: Pt[] =
+    startX === to.x
+      ? [
+          [px, sy],
+          [tx, top - 4],
+        ]
+      : [
+          [px, sy],
+          [px, channel],
+          [tx, channel],
+          [tx, top - 4],
+        ];
+  return pts;
+};
+const route = (key: string, d = 0) => rounded(routePoints(key, d));
+/**
+ * A routed edge's label sits on its channel, the run across; a straight edge's, a little past
+ * halfway, clear of a frame round its source.
+ */
+const onChannel = (key: string, d = 0) => {
+  const pts = routePoints(key, d);
+  if (pts.length === 4) return { x: (pts[1]![0] + pts[2]![0]) / 2, y: pts[1]![1] };
+  return { x: pts[0]![0], y: pts[0]![1] + (pts[1]![1] - pts[0]![1]) * 0.6 };
+};
+const routed = (kind: string) =>
+  kind === 'renders' || kind === 'needs' || (injector && kind === 'uses');
+
+const hidden = (key: string) => key.split('>').some((id) => marks[id] === 'hidden');
 const edges = [
-  ...renders.map((key) => ({ key, kind: 'renders' })),
-  ...usesEdges.map((key) => ({ key, kind: 'uses' })),
-  ...needs.map((key) => ({ key, kind: 'needs' })),
+  ...(root ? [{ key: 'Root>App', kind: 'renders', label: undefined }] : []),
+  ...renders.map((key) => ({ key, kind: 'renders', label: undefined })),
+  ...(beside ? [] : usesEdges.map((key) => ({ key, kind: 'uses', label: uses }))),
+  ...needsEdges.map((key) => ({ key, kind: 'needs', label: needs })),
+  // Toned edges last, so a coloured edge sits on top of a shared trunk.
+]
+  .filter(({ key }) => !hidden(key))
+  .toSorted((a, b) => Number(Boolean(edgeTones[a.key])) - Number(Boolean(edgeTones[b.key])));
+
+/** An edge into or out of a ghost (not built, not rendered yet) is a ghost too. */
+const ghostly = (key: string) => key.split('>').some((id) => marks[id] === 'ghost');
+const edgeLabelBoxes = edges.flatMap(({ key, kind, label }) => {
+  const carried = strands[key];
+  if (carried) {
+    const offsets = strandOffsets(key);
+    return carried.map((dep, i) => {
+      const { x, y } = onChannel(key, offsets[i]);
+      const tone = dep === highlight ? 'green' : edgeTones[key];
+      return { text: `{${dep}}`, x, y, tone, ghost: ghostly(key) };
+    });
+  }
+  const raw = edgeLabels[key] ?? label;
+  if (!raw) return [];
+  const source = key.split('>')[0]!;
+  const from = nodes[source]!;
+  const below = from.y + from.h / 2 + 12;
+  if (kind === 'needs' && !beside) {
+    // Just under the source; a second edge from the same source gets the next slot down.
+    const slot = outgoing(source).indexOf(key);
+    return [
+      {
+        text: labelText(key, raw),
+        x: portX(key),
+        y: below + slot * 22,
+        tone: edgeTones[key],
+        ghost: ghostly(key),
+      },
+    ];
+  }
+  if (kind === 'uses' && injector) {
+    // On the run across, all lined up in the gap between the tree and the injector.
+    const text = labelText(key, raw);
+    // Left-aligned, so the spines line up.
+    const x = (frame?.x ?? 0) - LANES - usesWidth - 8 + callWidth(text) / 2;
+    return [{ text, x, y: from.y, tone: edgeTones[key], ghost: ghostly(key), call: true }];
+  }
+  if (kind === 'uses') {
+    return [
+      { text: labelText(key, raw), x: from.x, y: below, tone: edgeTones[key], ghost: ghostly(key) },
+    ];
+  }
+  const at = routed(kind) ? onChannel(key) : mid(key);
+  return [{ text: labelText(key, raw), ...at, tone: edgeTones[key], ghost: ghostly(key) }];
+});
+
+const viewWidth = injector && frame ? frame.x2 + 4 : beside ? 830 : 680;
+// Context: a curve from the leaf up to <App>, round the outside of the tree.
+const app = nodes.App!;
+const curves = (teleport?.from ?? []).map((id) => {
+  const leaf = nodes[id]!;
+  const top = leaf.y - H / 2;
+  const appBottom = app.y + app.h / 2;
+  if (Math.abs(leaf.x - app.x) < 60) {
+    return {
+      d: rounded([
+        [leaf.x, top],
+        [leaf.x, appBottom + 4],
+      ]),
+      lx: leaf.x,
+      // Just under <App>, above the second row, where nothing branches across.
+      ly: (appBottom + nodes.Header!.y - H / 2) / 2,
+      id,
+      tone: teleport?.broken?.includes(id) ? ('red' as const) : undefined,
+    };
+  }
+  // Out to the side, up past the tree, and into <App> from the side.
+  const left = leaf.x < app.x;
+  const lane = left ? leaf.x - leaf.w / 2 - 25 : Math.max(662, leaf.x + leaf.w / 2 + 25);
+  const start = left ? leaf.x - leaf.w / 2 : leaf.x + leaf.w / 2;
+  const end = left ? app.x - app.w / 2 - 4 : app.x + app.w / 2 + 4;
+  return {
+    d: rounded([
+      [start, leaf.y],
+      [lane, leaf.y],
+      [lane, app.y],
+      [end, app.y],
+    ]),
+    lx: lane,
+    // In the gap between the second and third rows.
+    ly: (base.Header!.y + leaf.y) / 2,
+    id,
+    tone: teleport?.broken?.includes(id) ? ('red' as const) : undefined,
+  };
+});
+const boxes = [
+  ...edgeLabelBoxes,
+  ...curves.map((curve) => {
+    // What this leaf takes: the service it uses.
+    const used = usesEdges.find((k) => k.startsWith(`${curve.id}>`))?.split('>')[1];
+    const text = teleport!.label
+      .replaceAll('$dep', used ? depOf[used]! : '')
+      .replaceAll('$fn', used ? fnOf[used]! : '');
+    // Centred on its lane; on the right, pulled in to stay inside the drawing.
+    const half = labelWidth(text) / 2 + 8;
+    return {
+      text,
+      x: Math.min(curve.lx, viewWidth - half - 2),
+      y: curve.ly,
+      tone: curve.tone,
+      ghost: false,
+    };
+  }),
 ];
+
 const uid = Math.random().toString(36).slice(2, 8);
+// Injector: the root's first line creates it, so an arrow runs from there into the frame.
+const rootNode = nodes.Root;
+const creates =
+  injector && frame && rootNode
+    ? rounded([
+        [rootNode.x + rootNode.w / 2, rootLineY],
+        [frame.x - 4, rootLineY],
+      ])
+    : undefined;
+// A root outside any frame carries its title (its file) above it.
+const rootTitle = root?.title && !(beside && frame) ? root.title : undefined;
+const top = injector
+  ? Math.min(frame ? frame.y - 28 : 0, -28)
+  : Math.min(
+      frame ? frame.y - 28 : Infinity,
+      (root ? appTop - ROOT_GAP - rootH - (rootTitle ? 18 : 0) : appTop) - 10,
+    );
+const noteBelow = Object.values(notes).some((note) => Array.isArray(note) && note[1] === 'below');
+const bottom =
+  injector && frame
+    ? Math.max(frame.y2, nodes.RevenueChart!.y + CALL_H / 2) + 6
+    : (beside ? 245 : files ? 565 : 450) + (noteBelow ? 20 : 0);
+// A label out past the left edge widens the drawing that way.
+const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 - 12));
+// Beside: one arrow from the service graph into <App>, for the arguments it's built with.
 ---
 
-<svg class="tree" viewBox="0 0 680 450" xmlns="http://www.w3.org/2000/svg">
+<svg
+  class:list={['tree', { wide: sideways, 'focus-services': focus === 'services' }]}
+  viewBox={`${left} ${top} ${viewWidth - left} ${bottom - top}`}
+  style={`--view-width: ${viewWidth - left}px`}
+  xmlns="http://www.w3.org/2000/svg"
+>
   <defs>
-    <marker
-      id={`tip-${uid}`}
-      viewBox="0 0 8 8"
-      refX="4"
-      refY="4"
-      markerWidth="8"
-      markerHeight="8"
-      markerUnits="userSpaceOnUse"
-      orient="auto"
-    >
-      <path d="M0,0 L8,4 L0,8 z" fill="context-stroke" />
-    </marker>
+    {Object.entries(deps).map(([dep, { icon }]) => (
+      <symbol id={`${uid}-${dep}`} viewBox="0 0 16 16" class="icon" set:html={icon} />
+    ))}
+    {['plain', 'red', 'purple', 'orange', 'blue', 'green'].map((tone) => (
+      <marker
+        id={`${uid}-${tone}`}
+        class={`tip ${tone}`}
+        viewBox="0 0 8 8"
+        refX="4"
+        refY="4"
+        markerWidth="8"
+        markerHeight="8"
+        markerUnits="userSpaceOnUse"
+        orient="auto"
+      >
+        <path d="M0,0 L8,4 L0,8 z" />
+      </marker>
+    ))}
   </defs>
 
-  <line class="divider" x1="10" y1="222" x2="670" y2="222" />
-  <text class="zone" x="10" y="214">
-    components
-  </text>
-  <text class="zone" x="10" y="238">
-    services
-  </text>
-
-  {edges.map(({ key, kind }) => (
-    <line
-      class:list={['edge', kind, { hot: hot.includes(key) }]}
-      {...line(key)}
-      marker-end={`url(#tip-${uid})`}
-    />
-  ))}
-  {uses &&
-    usesEdges.map((key) => (
-      <text class="edge-label" {...mid(key)}>
-        {uses}
+  {!beside && focus === 'services' && (
+    <>
+      <rect
+        class="band"
+        x={left + 4}
+        y="226"
+        width={viewWidth - left - 8}
+        height={bottom - 230}
+        rx="6"
+      />
+      <text class="zone" x="10" y="216">
+        components
       </text>
-    ))}
-  {Object.entries(edgeLabels).map(([key, text]) => (
-    <text class="edge-label strong" {...mid(key)}>
-      {text}
+      <text class="zone strong" x={left + 14} y="244">
+        services
+      </text>
+    </>
+  )}
+  {!beside && !injector && focus !== 'services' && (
+    <>
+      <line class="divider" x1="10" y1="222" x2={viewWidth - 10} y2="222" />
+      <text class="zone" x="10" y="216">
+        app: a tree
+      </text>
+      <text class="zone" x="10" y="238">
+        dependencies: a graph
+      </text>
+    </>
+  )}
+  {frame && (
+    <>
+      <rect
+        class:list={['frame', { injector }]}
+        x={frame.x}
+        y={frame.y}
+        width={frame.x2 - frame.x}
+        height={frame.y2 - frame.y}
+      />
+      <text class:list={['frame-label', { injector }]} x={frame.x} y={frame.y - 8}>
+        {injector ? 'injector' : root?.title}
+      </text>
+    </>
+  )}
+  {creates && <path class="edge blue" d={creates} marker-end={`url(#${uid}-blue)`} />}
+  {rootTitle && rootNode && (
+    <text class="root-title" x={rootNode.x - rootNode.w / 2} y={rootNode.y - rootNode.h / 2 - 8}>
+      {rootTitle}
     </text>
-  ))}
+  )}
 
-  {Object.entries(nodes).map(([id, node]) => (
-    <g class:list={['node', { service: node.service }]} data-mark={marks[id]}>
-      <rect x={node.x - W / 2} y={node.y - H / 2} width={W} height={H} rx={node.service ? 15 : 3} />
-      <text x={node.x} y={node.y}>
-        {node.text}
-      </text>
-    </g>
-  ))}
-  {Object.entries(notes).map(([id, text]) => {
-    const node = nodes[id]!;
-    const right = node.x < 500;
-    return (
-      <text
-        class="note"
-        x={right ? node.x + W / 2 + 8 : node.x - W / 2 - 8}
-        y={node.y}
-        text-anchor={right ? 'start' : 'end'}
-      >
-        {text}
-      </text>
+  {edges.map(({ key, kind }) => {
+    const tone = edgeTones[key];
+    const marker = `url(#${uid}-${tone ?? 'plain'})`;
+    const carried = strands[key];
+    if (carried) {
+      return strandOffsets(key).map((d, i) => {
+        const fresh = carried[i] === highlight;
+        return (
+          <path
+            class:list={['edge', 'strand', fresh ? 'green' : tone]}
+            d={route(key, d)}
+            marker-end={fresh ? `url(#${uid}-green)` : marker}
+          />
+        );
+      });
+    }
+    return routed(kind) ? (
+      <path
+        class:list={['edge', kind, tone, { ghost: ghostly(key), inject: injector }]}
+        d={route(key)}
+        marker-end={injector && kind === 'renders' ? undefined : marker}
+      />
+    ) : (
+      <line
+        class:list={['edge', kind, tone, { ghost: ghostly(key), inject: injector }]}
+        {...line(key)}
+        marker-end={marker}
+      />
     );
   })}
+  {curves.map((curve) => (
+    <path
+      class:list={['edge teleport', curve.tone]}
+      d={curve.d}
+      marker-end={`url(#${uid}-${curve.tone ?? 'plain'})`}
+    />
+  ))}
+
+  {Object.entries(nodes)
+    .filter(([id]) => marks[id] !== 'hidden')
+    .map(([id, node]) => (
+      <g
+        class:list={['node', { service: 'service' in node && node.service }]}
+        data-mark={id === 'Root' ? root?.mark : marks[id]}
+      >
+        {'file' in node && node.file ? (
+          (() => {
+            const [l, r, t, b] = [
+              node.x - node.w / 2,
+              node.x + node.w / 2,
+              node.y - node.h / 2,
+              node.y + node.h / 2,
+            ];
+            return (
+              <>
+                <path
+                  class="shape"
+                  d={`M ${l} ${t} H ${r - EAR} L ${r} ${t + EAR} V ${b} H ${l} Z`}
+                />
+                <path class="bar" d={`M ${l} ${b - BAR} H ${r} V ${b} H ${l} Z`} />
+                <path class="ear" d={`M ${r - EAR} ${t} V ${t + EAR} H ${r}`} />
+                <text class="file" x={node.x} y={b - BAR / 2}>
+                  {serviceText[id]?.file}
+                </text>
+              </>
+            );
+          })()
+        ) : (
+          <rect
+            class="shape"
+            x={node.x - node.w / 2}
+            y={node.y - node.h / 2}
+            width={node.w}
+            height={node.h}
+            rx={'service' in node && node.service ? 15 : 3}
+          />
+        )}
+        {linesOf(node.text).map((text, row, rows) => {
+          const multi = rows.length > 1;
+          let x = multi ? node.x - node.w / 2 + 12 : node.x - contentWidth(text) / 2;
+          const middle = 'file' in node && node.file ? node.y - BAR / 2 : node.y;
+          const y = middle + (row - (rows.length - 1) / 2) * LINE;
+          const placed = segment(text).map((seg) => {
+            const at = x;
+            x += 'icon' in seg ? ICON_STEP : seg.text.length * CH;
+            return { seg, at, end: x };
+          });
+          // Something missing gets a dashed hole round it, struck through, in the error colour.
+          const gap = placed.filter((p) => p.seg.missing);
+          const gapStart = gap[0]?.at ?? 0;
+          const gapEnd = gap.at(-1)?.end ?? 0;
+          return [
+            gap.length > 0 && (
+              <rect
+                class="missing"
+                x={gapStart - 4}
+                y={y - 9}
+                width={gapEnd - gapStart + 6}
+                height={18}
+                rx={3}
+              />
+            ),
+            ...placed.map(({ seg, at }) =>
+              'icon' in seg ? (
+                <use
+                  class:list={[
+                    'icon',
+                    {
+                      missing: seg.missing,
+                      fresh: seg.icon === highlight && !node.service && id !== 'Root',
+                    },
+                  ]}
+                  href={`#${uid}-${seg.icon}`}
+                  x={at}
+                  y={y - ICON / 2}
+                  width={ICON}
+                  height={ICON}
+                />
+              ) : (
+                <text
+                  class:list={{ missing: seg.missing }}
+                  x={at}
+                  y={y}
+                  textLength={seg.text.length * CH}
+                >
+                  {seg.text}
+                </text>
+              ),
+            ),
+            gap.length > 0 && (
+              <line class="missing" x1={gapStart + ICON_STEP} x2={gapEnd - 2} y1={y} y2={y} />
+            ),
+          ];
+        })}
+      </g>
+    ))}
+  {/* Edge labels last, so their boxes sit over everything they cross. */}
+  {boxes.map((box) => {
+    const { x: cx, y: cy, tone, ghost } = box;
+    const call = 'call' in box && box.call ? callOf(box.text) : undefined;
+    const text = call ? call.arg : box.text;
+    // Just an icon: a small round pill. Anything with text gets more room.
+    const pad = segment(text).every((seg) => 'icon' in seg) ? 3 : 6;
+    const w = labelWidth(text) + pad * 2 - (pad === 3 ? 2 : 0);
+    // A call: the argument indented under `inject(`, over `)`, the container its only pill.
+    const block = call && {
+      l: cx - callWidth(box.text) / 2 + CALL.pad,
+      r: cx + callWidth(box.text) / 2 - CALL.pad,
+      slotT: cy - LABEL_H / 2,
+      slotB: cy + LABEL_H / 2,
+    };
+    const px = block ? block.r - w / 2 : cx;
+    let x = px - w / 2 + pad;
+    return (
+      <g class:list={['pill', tone, { ghost, call: block }]}>
+        {block && call && (
+          <>
+            <rect
+              class="call-box"
+              x={block.l - CALL.pad}
+              y={block.slotT - CALL.top}
+              width={block.r - block.l + CALL.pad * 2}
+              height={CALL_H}
+              rx={CALL.radius}
+            />
+            <text class="call-label" x={block.l} y={block.slotT - CALL.top / 2 + 1}>
+              {call.fn}(
+            </text>
+            <text class="call-label" x={block.l} y={block.slotB + CALL.bottom / 2 - 1}>
+              )
+            </text>
+          </>
+        )}
+        {!block && (
+          <rect x={px - w / 2} y={cy - LABEL_H / 2} width={w} height={LABEL_H} rx={LABEL_H / 2} />
+        )}
+        {segment(text).map((seg) => {
+          const start = x;
+          if ('icon' in seg) {
+            x += 14;
+            return (
+              <use
+                class="icon label-icon"
+                href={`#${uid}-${seg.icon}`}
+                x={start}
+                y={cy - 6}
+                width="12"
+                height="12"
+              />
+            );
+          }
+          x += seg.text.length * LABEL_CH;
+          return (
+            <text class="edge-label" x={start} y={cy} textLength={seg.text.length * LABEL_CH}>
+              {seg.text}
+            </text>
+          );
+        })}
+      </g>
+    );
+  })}
+  {[...Object.entries(notes), ...(root?.note ? ([['Root', root.note]] as const) : [])].map(
+    ([id, note]) => {
+      const node = nodes[id]!;
+      const [text, side, tone] = typeof note === 'string' ? [note, 'right'] : note;
+      const at = {
+        right: { x: node.x + node.w / 2 + 8, y: node.y, anchor: 'start' },
+        left: { x: node.x - node.w / 2 - 8, y: node.y, anchor: 'end' },
+        below: { x: node.x, y: node.y + node.h / 2 + 14, anchor: 'middle' },
+      }[side as Side];
+      return (
+        <text class:list={['note', tone]} x={at.x} y={at.y} text-anchor={at.anchor}>
+          {text}
+        </text>
+      );
+    },
+  )}
 </svg>
 
 <style>
@@ -140,7 +984,17 @@ const uid = Math.random().toString(36).slice(2, 8);
     display: block;
     width: 100%;
     max-width: 680px;
+  }
+  /* Wider than the text column: let it spill out evenly on both sides when there's room. */
+  .tree.wide {
+    width: min(var(--view-width), 100vw - 32px);
+    max-width: none;
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
+  .tree {
     height: auto;
+    overflow: visible;
     font-family: ui-monospace, monospace;
     font-size: 12px;
   }
@@ -150,67 +1004,282 @@ const uid = Math.random().toString(36).slice(2, 8);
   }
   .zone {
     fill: #999;
-    font-size: 11px;
+    font-size: 10px;
+  }
+  /* Services first: the graph on its own band, at full weight; components as faint outlines. */
+  .band {
+    fill: #f4f4f1;
+  }
+  .zone.strong {
+    fill: #555;
+    font-weight: 600;
+  }
+  .focus-services .node.service:not([data-mark]) .shape {
+    fill: #fff;
+    stroke: #444;
+    stroke-width: 1.5;
+  }
+  .focus-services .node.service:not([data-mark]) .ear {
+    stroke: #444;
+  }
+  .focus-services .edge.needs:not(.purple, .orange, .blue, .red) {
+    stroke: #555;
+    stroke-width: 2;
+  }
+  .focus-services .node:not(.service, [data-mark]) .shape {
+    fill: none;
+    stroke: #ccc;
+  }
+  .focus-services .node:not(.service, [data-mark]) {
+    color: #aaa;
+  }
+  .focus-services .edge.renders {
+    stroke: #ddd;
+    stroke-width: 1;
   }
   .edge {
+    fill: none;
     stroke: #999;
     stroke-width: 1.5;
   }
-  .edge.uses {
+  .edge.uses,
+  .edge.teleport {
     stroke-dasharray: 5 3;
   }
-  .edge.hot {
-    stroke: #d33;
+  .file {
+    fill: currentColor;
+    opacity: 0.75;
+    font-size: 10px;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+  /* Darkens whatever the node's fill is, so it works with every mark. */
+  .bar {
+    fill: rgb(0 0 0 / 0.1);
+  }
+  .ear {
+    fill: none;
+    stroke: inherit;
+  }
+  .node .ear {
+    stroke: #999;
+  }
+  [data-mark] .ear {
+    stroke: var(--tone);
+  }
+  .frame {
+    fill: #fffaf3;
+    stroke: #d70;
+    stroke-dasharray: 6 4;
+  }
+  .frame-label {
+    fill: #d70;
+    font-weight: 600;
+  }
+  .frame.injector {
+    fill: #f6f8ff;
+    stroke: #36c;
+  }
+  .frame-label.injector {
+    fill: #36c;
+  }
+  .root-title {
+    fill: #777;
+    font-weight: 600;
+  }
+  /* Asking the injector is a plain call, not a lookup: solid, unlike context's dashed reach. */
+  .edge.uses.inject {
+    stroke-dasharray: none;
+  }
+  .edge.red,
+  .edge.purple,
+  .edge.orange,
+  .edge.blue,
+  .edge.green {
     stroke-width: 3;
   }
+  .edge.strand {
+    stroke-width: 1.5;
+  }
+  .edge.strand.green {
+    stroke-width: 2.5;
+  }
+  .tip.plain path {
+    fill: #999;
+  }
+  .red {
+    --tone: #d33;
+    --soft: #fde4e4;
+  }
+  .purple {
+    --tone: #84c;
+    --soft: #f2e6fa;
+  }
+  .orange {
+    --tone: #d70;
+    --soft: #fff0dc;
+  }
+  .blue {
+    --tone: #36c;
+    --soft: #e2eaff;
+  }
+  /* What just changed: a new dependency, along its whole way down. */
+  .green {
+    --tone: #1a9b4b;
+    --soft: #ddf5e5;
+  }
+  .edge.red,
+  .edge.purple,
+  .edge.orange,
+  .edge.blue,
+  .edge.green {
+    stroke: var(--tone);
+  }
+  /* Icons are <use>s of a symbol stroked in currentColor, so colour reaches them; stroke doesn't. */
+  .node .icon.fresh {
+    color: #1a9b4b;
+  }
+  .tip:not(.plain) path {
+    fill: var(--tone);
+  }
+  .pill rect {
+    fill: #fff;
+    stroke: #bbb;
+  }
+  .pill.red rect,
+  .pill.purple rect,
+  .pill.orange rect,
+  .pill.blue rect,
+  .pill.green rect {
+    fill: var(--soft);
+    stroke: var(--tone);
+  }
+  .pill {
+    color: #666;
+  }
+  .pill.red,
+  .pill.purple,
+  .pill.orange,
+  .pill.blue,
+  .pill.green {
+    color: var(--tone);
+  }
+  .call-label {
+    fill: currentColor;
+    font-size: 10px;
+    dominant-baseline: central;
+  }
+  .pill .edge-label {
+    fill: currentColor;
+  }
+  .label-icon {
+    stroke: currentColor;
+  }
   .edge-label {
+    white-space: pre;
     fill: #777;
     font-size: 11px;
     dominant-baseline: central;
   }
-  .edge-label.strong {
-    fill: #c60;
+  .edge-label.red,
+  .edge-label.purple,
+  .edge-label.orange,
+  .edge-label.blue {
+    fill: var(--tone);
+    font-weight: 600;
   }
-  .node rect {
+  .node .shape {
     fill: #f2f2f2;
     stroke: #999;
   }
+  .node {
+    color: #222;
+  }
   .node text {
-    text-anchor: middle;
     dominant-baseline: central;
-    fill: #222;
+    white-space: pre;
+    fill: currentColor;
   }
-  [data-mark='hot'] rect {
-    fill: #fdd;
-    stroke: #d33;
+  .icon {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  [data-mark^='red'] {
+    --tone: #d33;
+    --soft: #fde4e4;
+  }
+  [data-mark^='purple'] {
+    --tone: #84c;
+    --soft: #f2e6fa;
+  }
+  [data-mark^='orange'] {
+    --tone: #d70;
+    --soft: #fff0dc;
+  }
+  [data-mark^='blue'] {
+    --tone: #36c;
+    --soft: #e2eaff;
+  }
+  /* Solid: where the flow starts. Soft: what it reaches. */
+  [data-mark='red'] .shape,
+  [data-mark='purple'] .shape,
+  [data-mark='orange'] .shape,
+  [data-mark='blue'] .shape {
+    fill: var(--tone);
+    stroke: var(--tone);
+  }
+  [data-mark='red'],
+  [data-mark='purple'],
+  [data-mark='orange'],
+  [data-mark='blue'] {
+    color: #fff;
+  }
+  [data-mark$='-soft'] .shape {
+    fill: var(--soft);
+    stroke: var(--tone);
     stroke-width: 2;
   }
-  [data-mark='pass'] rect {
-    fill: #fff1dd;
-    stroke: #c60;
-    stroke-width: 2;
-  }
-  [data-mark='root'] rect {
-    fill: #222;
-  }
-  [data-mark='root'] text {
-    fill: #fff;
-  }
-  [data-mark='fake'] rect {
-    fill: #dde6ff;
-    stroke: #35c;
-    stroke-width: 2;
-  }
-  [data-mark='ghost'] rect {
+  [data-mark='ghost'] .shape {
     fill: none;
     stroke-dasharray: 4 3;
   }
-  [data-mark='ghost'] text {
-    fill: #aaa;
+  [data-mark='ghost'] {
+    color: #aaa;
+  }
+  .edge.ghost,
+  .pill.ghost {
+    opacity: 0.3;
   }
   .note {
-    fill: #c33;
+    fill: #555;
     font-size: 11px;
+    font-style: italic;
     dominant-baseline: central;
+  }
+  /* A gap where something should be: dashed and struck through, in the error colour. */
+  rect.missing {
+    fill: #fff;
+    stroke: #d33;
+    stroke-dasharray: 3 2;
+  }
+  line.missing {
+    stroke: #d33;
+    stroke-width: 1.2;
+  }
+  .node text.missing {
+    fill: #d33;
+  }
+  .node .icon.missing {
+    color: #d33;
+  }
+  .note.red,
+  .note.purple,
+  .note.orange,
+  .note.blue {
+    fill: var(--tone);
+    font-style: normal;
   }
 </style>

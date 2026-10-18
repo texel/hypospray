@@ -3,5 +3,5 @@
   "singleQuote": true,
   "sortImports": true,
   "astro": true,
-  "ignorePatterns": ["specs/**", "site/src/examples/**/*.ts"]
+  "ignorePatterns": ["specs/**", "site/src/examples/**/*.ts", "**/*.mdx"]
 }

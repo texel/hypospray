@@ -1,0 +1,161 @@
+---
+/**
+ * Steps that swap one diagram as you scroll. Write each step as a `<Step diagram={…}>` holding
+ * Markdown, and pass the same diagrams, in order, as `diagrams`: on wide screens they're stacked
+ * on a sticky stage beside the steps, and the step crossing the middle of the viewport picks one.
+ */
+import TreeDiagram from './TreeDiagram.astro';
+
+interface Props {
+  diagrams: Record<string, unknown>[];
+}
+const { diagrams } = Astro.props;
+---
+
+<div class="stepper" data-stepper>
+  <div class="steps">
+    <slot />
+  </div>
+  <div class="stage" aria-hidden="true">
+    {diagrams.map((diagram) => (
+      <div class="stage-frame">
+        <TreeDiagram {...diagram} />
+      </div>
+    ))}
+  </div>
+</div>
+
+<style is:global>
+  .stepper {
+    /* Space between steps: with each step's own text, how far you scroll from one to the next. */
+    --step-gap: 60px;
+  }
+  .stepper .stage {
+    display: none;
+  }
+  @media (min-width: 1000px) {
+    .stepper[data-live] {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 32px;
+      width: min(1040px, 100vw - 32px);
+      margin-left: 50%;
+      transform: translateX(-50%);
+    }
+    .stepper[data-live] .step-art {
+      display: none;
+    }
+    /*
+     * The stage pins centred in the viewport (--pin-top, set by the script), and everything lines
+     * up on its top edge: the first step starts there, and each next one takes over as it scrolls
+     * up to it. Then the active step always sits beside the top of the picture.
+     */
+    .stepper[data-live] .stage {
+      display: grid;
+      position: sticky;
+      top: var(--pin-top, 16px);
+      align-self: start;
+    }
+    /* A step's height plus the gap is how far you scroll before the next one takes over. */
+    .stepper[data-live] .step {
+      /* The box is exactly its text: no paragraph margins leaking out to throw the measuring off. */
+      display: flow-root;
+      margin-bottom: var(--step-gap);
+      padding-left: 14px;
+      border-left: 3px solid #ddd;
+      /* Linked to, a step lands on the line that activates it. */
+      scroll-margin-top: var(--pin-top, 16px);
+    }
+    .stepper[data-live] .step:last-child {
+      margin-bottom: 0;
+    }
+    .stepper[data-live] .step > p:first-of-type {
+      margin-top: 0;
+    }
+    .stepper[data-live] .step > p:last-of-type {
+      margin-bottom: 0;
+    }
+    /*
+     * Room after the last step (--tail, measured), so the stage stays pinned until the last step
+     * reaches its top; from there the whole stepper, picture and all, scrolls on as one.
+     */
+    .stepper[data-live] .steps {
+      padding-bottom: var(--tail, 0px);
+    }
+    .stepper[data-live] .step[data-active] {
+      border-left-color: #36c;
+    }
+    /* A wide diagram fits the stage's column, rather than breaking out of it. */
+    .stepper .stage-frame .tree.wide {
+      width: 100%;
+      margin-left: 0;
+      transform: none;
+    }
+    .stepper .stage-frame {
+      grid-area: 1 / 1;
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .stepper .stage-frame[data-active] {
+      opacity: 1;
+    }
+  }
+</style>
+
+<script>
+  /**
+   * How close to the stage's top edge a step has to scroll before it takes over, as a fraction of
+   * the stage's height. 0: right at the edge. Higher: sooner, while the step before is still in view.
+   */
+  const TAKEOVER = 0.2;
+
+  for (const stepper of document.querySelectorAll<HTMLElement>('[data-stepper]')) {
+    const steps = [...stepper.querySelectorAll<HTMLElement>('[data-step]')];
+    const frames = [...stepper.querySelectorAll<HTMLElement>('.stage-frame')];
+    const activate = (n: number) => {
+      steps.forEach((step, i) => step.toggleAttribute('data-active', i === n));
+      frames.forEach((frame, i) => frame.toggleAttribute('data-active', i === n));
+    };
+    steps.forEach((step, i) => (step.dataset.step = String(i)));
+    const stage = stepper.querySelector<HTMLElement>('.stage');
+    let pinTop = 16;
+    let line = 16;
+    const layout = () => {
+      if (!stage) return;
+      const height = stage.offsetHeight;
+      pinTop = Math.max(16, (innerHeight - height) / 2);
+      stepper.style.setProperty('--pin-top', `${pinTop}px`);
+      line = pinTop + height * TAKEOVER;
+      const last = steps.at(-1);
+      const tail = last ? Math.max(0, height - last.offsetHeight) : 0;
+      stepper.style.setProperty('--tail', `${tail}px`);
+    };
+    // The active step is the last one whose top has come within TAKEOVER of the stage's top edge
+    // (or the first, before any has).
+    let current = -1;
+    const update = () => {
+      const reached = steps.filter((step) => step.getBoundingClientRect().top <= line);
+      const n = Math.max(0, reached.length - 1);
+      if (n !== current) activate((current = n));
+    };
+    let queued = false;
+    addEventListener(
+      'scroll',
+      () => {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(() => {
+          queued = false;
+          update();
+        });
+      },
+      { passive: true },
+    );
+    if (stage) new ResizeObserver(layout).observe(stage);
+    addEventListener('resize', layout);
+    // Live first: until then the stage is hidden, and has no height to measure.
+    stepper.dataset.live = '';
+    layout();
+    update();
+  }
+</script>

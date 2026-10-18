@@ -1,0 +1,19 @@
+---
+/**
+ * One step of a `Stepper`: Markdown text, plus the diagram it shows. The diagram is drawn here
+ * too, for narrow screens and before the script runs.
+ */
+import TreeDiagram from './TreeDiagram.astro';
+
+interface Props {
+  diagram: Record<string, unknown>;
+}
+const { diagram } = Astro.props;
+---
+
+<div class="step" data-step>
+  <slot />
+  <div class="step-art">
+    <TreeDiagram {...diagram} />
+  </div>
+</div>
