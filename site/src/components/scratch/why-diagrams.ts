@@ -1,3 +1,5 @@
+import { ts } from '../../lib/template-helpers';
+
 /**
  * Everything the Why scratch page draws, kept out of its prose (`pages/scratch/why.mdx`). Each
  * export is a ready set of props for `TreeDiagram` or `CaseDiagram`: spread it in.
@@ -37,6 +39,30 @@ const all = <T extends string>(keys: string[], value: T) =>
   Object.fromEntries(keys.map((key) => [key, value])) as Record<string, T>;
 const notYet = (ids: string[]) => all(ids, 'ghost');
 
+/** Beat 1, one per step, top-down (kept to compare with `wiring`). */
+export const wiringTopDown = [
+  {},
+  {
+    marks: {
+      OrdersTable: 'purple',
+      OrdersApi: 'purple-soft',
+      HttpClient: 'purple-soft',
+      Config: 'purple-soft',
+    },
+    edges: all(['OrdersTable>OrdersApi', 'OrdersApi>HttpClient', 'HttpClient>Config'], 'purple'),
+  },
+].map((step) =>
+  Object.assign(
+    {
+      services: 'instance',
+      uses: 'import { $dep }',
+      needs: 'import { $dep }',
+      focus: 'services',
+    },
+    step,
+  ),
+);
+
 /** Beat 1, one per step: first the graph, then the imports that wire it. */
 export const wiring = [
   {},
@@ -52,6 +78,7 @@ export const wiring = [
 ].map((step) =>
   Object.assign(
     {
+      layout: 'outline',
       services: 'instance',
       uses: 'import { $dep }',
       needs: 'import { $dep }',
@@ -110,13 +137,52 @@ export const cascadeLogger = Object.assign({}, cascade, {
 });
 export const cascadeSteps = [cascade, cascadeLogger];
 
+/**
+ * Beat 3, first: the root builds every service, each after everything it needs, then renders the
+ * app with them. Each line that builds one is numbered, and so is what it builds.
+ */
+const buildOrder = ['Config', 'HttpClient', 'Logger', 'AuthClient', 'OrdersApi', 'AnalyticsApi'];
+const components = ['App', 'Header', 'Dashboard', ...leaves];
+export const building = {
+  layout: 'build',
+  root: {
+    text: [
+      ...mainCode.split('\n').slice(0, buildOrder.length),
+      '',
+      'render(<App {auth}{orders}{analytics} />);',
+    ].join('\n'),
+    mark: 'orange-soft',
+    title: 'main.tsx',
+  },
+  marks: Object.assign(all(components, 'hidden'), all(services, 'orange-soft')),
+  edges: all(needsEdges, 'orange'),
+  order: buildOrder,
+};
+
+/** Beat 3, then: the root hands them all down the tree, to whoever uses them. */
+const drillRoot = (props: string) => ({
+  text: `render(<App ${props} />);`,
+  mark: 'orange-soft' as const,
+  title: 'main.tsx',
+});
+export const drilling = [
+  { root: drillRoot('{auth}{orders}{analytics}') },
+  Object.assign({}, cascadeLogger, {
+    root: drillRoot('{auth}{orders}{analytics}{logger}'),
+  }),
+].map((step) =>
+  Object.assign({}, cascade, step, {
+    marks: Object.assign(all(components, 'orange-soft'), all(services, 'hidden')),
+    edges: all(['Root>App', ...renders], 'orange'),
+    drill: true,
+  }),
+);
+
 /** Beat 4: context, working, then with a provider forgotten. */
 export const context = {
   layout: 'beside',
-  root: { text: mainCode, mark: 'orange-soft', title: 'main.tsx' },
-  marks: Object.assign({ App: 'orange-soft' }, all(services, 'orange-soft')),
+  marks: Object.assign({ App: 'orange-soft' }, all(services, 'hidden')),
   labels: { App: '<App> provides { auth, orders, analytics }' },
-  edges: all(['Root>App', ...needsEdges], 'orange'),
   teleport: { from: leaves, label: 'useContext().$dep' },
 };
 export const contextBroken = Object.assign({}, context, {
@@ -231,12 +297,13 @@ export const importCases = {
     replacement: { text: '{orders} fakeOrders' },
     control: {
       file: 'OrdersTable.test.tsx',
-      code: [
-        'const fakeOrders = vi.hoisted(() => ({',
-        "  list: async () => [{ id: 1, customer: 'Ada', total: 42 }],",
-        '}));',
-        "vi.mock('./orders', () => ({ orders: fakeOrders }));",
-      ].join('\n'),
+      code: ts`
+const fakeOrders = vi.hoisted(() => ({
+  list: async () => [{ id: 1, customer: 'Ada', total: 42 }],
+}));
+
+vi.mock('./orders', () => ({ orders: fakeOrders }));
+`,
     },
     note: 'Look at this code. What are you doing with your life?',
   },
@@ -244,50 +311,134 @@ export const importCases = {
 export const injectCases = {
   config: {
     tone: 'blue',
-    consumers: [
-      { text: '{http} getHttpClient()', file: 'http.ts' },
-      { text: '{logger} getLogger()', file: 'logger.ts' },
-    ],
-    original: { text: '{config} getConfig()', file: 'config.ts' },
-    replacement: { text: '{config} tenantConfig' },
+    consumer: {
+      file: 'http.ts',
+      row: 1,
+      code: ts`
+export function getHttpClient(
+  config = inject(getConfig)
+) {
+  console.log(config.apiUrl);
+  // Logs 'https://acme.dev'
+  // ...
+}
+`,
+    },
+    contract: {
+      file: 'config.ts',
+      key: '{config} getConfig',
+      returns: 8,
+      fallback: "{ apiUrl: '/api', retries: 0 }",
+      code: ts`
+export interface Config {
+  apiUrl: string;
+  retries: number;
+}
+
+export function getConfig(): Config {
+  // Return a default value, useful
+  // for dev or testing.
+  return { apiUrl: '/api', retries: 0 };
+}
+`,
+    },
+    value: "{ apiUrl: 'https://acme.dev', retries: 3 }",
     control: {
       file: 'main.ts',
-      code: 'const tenantConfig = await loadTenantConfig();\ncreateInjector({ providers: [\n  provideValue(getConfig, tenantConfig),\n] });',
+      code: ts`
+const env = import.meta.env;
+
+createInjector({ providers: [
+  provideValue(getConfig, {
+    apiUrl: env.VITE_API_URL,
+    retries: Number(env.VITE_RETRIES),
+  }),
+] });
+`,
     },
-    note: 'any value, decided at runtime',
+    note: 'Provide values at runtime with full type safety',
   },
   swap: {
     tone: 'blue',
-    consumers: [
-      { text: '{auth} getAuthClient()', file: 'auth.ts' },
-      { text: '{orders} getOrdersApi()', file: 'orders.ts' },
-      { text: '{analytics} getAnalyticsApi()', file: 'analytics.ts' },
-    ],
-    original: { text: '{http} getHttpClient()', file: 'http.ts' },
-    replacement: { text: '{http} withRetries(undici)' },
+    consumer: {
+      file: 'orders.ts',
+      row: 1,
+      code: ts`
+export function getOrdersApi(
+  http = inject(getHttpClient)
+) {
+  // ...
+}
+`,
+    },
+    contract: {
+      file: 'http.ts',
+      key: '{http} getHttpClient',
+      returns: 3,
+      code: ts`
+export function getHttpClient(
+  config = inject(getConfig),
+): HttpClient {
+  return createFetchClient(config.apiUrl);
+}
+`,
+    },
+    value: 'withRetries(undiciClient)',
     control: {
       file: 'server.ts',
       code: 'createInjector({ providers: [\n  provideFactory(getHttpClient, createUndiciClient),\n  extendProvider(getHttpClient, withRetries),\n] });',
     },
-    note: 'same build; the browser keeps its own',
+    note: 'Provide server config without all the build headaches',
   },
   test: {
     tone: 'blue',
-    consumers: [{ text: '<OrdersTable>', component: true }],
-    original: { text: '{orders} getOrdersApi()', file: 'orders.ts' },
-    replacement: { text: '{orders} fakeOrders' },
+    consumer: {
+      file: 'OrdersTable.tsx',
+      row: 1,
+      code: ts`
+export function OrdersTable() {
+  const orders = inject(getOrdersApi);
+  // ...
+}
+`,
+    },
+    contract: {
+      file: 'orders.ts',
+      key: '{orders} getOrdersApi',
+      returns: 3,
+      code: ts`
+export function getOrdersApi(
+  http = inject(getHttpClient),
+): OrdersApi {
+  return { list: () => http.get('/orders') };
+}
+`,
+    },
+    value: 'fakeOrders',
     control: {
       file: 'OrdersTable.test.tsx',
-      code: [
-        'const fakeOrders: OrdersApi = {',
-        "  list: async () => [{ id: 1, customer: 'Ada', total: 42 }],",
-        '};',
-        'const injector = createInjector({ providers: [',
-        '  provideValue(getOrdersApi, fakeOrders),',
-        '] });',
-        'injector.run(() => render(<OrdersTable />));',
-      ].join('\n'),
+      code: ts`
+const fakeOrders: OrdersApi = {
+  list: async () => [{ id: 1, customer: 'Ada', total: 42 }],
+};
+
+const injector = createInjector({ providers: [
+  provideValue(getOrdersApi, fakeOrders),
+] });
+
+injector.run(() => render(<OrdersTable />));
+`,
     },
-    note: 'typed against the real API; this test only, the next can provide another',
+    note: 'No import mocking, no hoisting, just easy-to-understand setup code',
   },
 };
+
+/**
+ * Beat 6's config case in steps: what you'd get from `getConfig` itself, then what `main.ts`
+ * provides over it, then `http.ts` asking for it.
+ */
+export const configSteps = [
+  { ...injectCases.config, provided: false, asked: false },
+  { ...injectCases.config, provided: true, asked: false },
+  { ...injectCases.config, provided: true, asked: true },
+];

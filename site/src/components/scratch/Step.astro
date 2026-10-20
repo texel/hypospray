@@ -3,17 +3,22 @@
  * One step of a `Stepper`: Markdown text, plus the diagram it shows. The diagram is drawn here
  * too, for narrow screens and before the script runs.
  */
+import InjectDiagram from './InjectDiagram.astro';
 import TreeDiagram from './TreeDiagram.astro';
 
 interface Props {
   diagram: Record<string, unknown>;
+  /** What draws it: as for the `Stepper`. */
+  as?: typeof TreeDiagram | typeof InjectDiagram;
 }
-const { diagram } = Astro.props;
+const { diagram, as = TreeDiagram } = Astro.props;
+// The diagrams' props are passed through as they come, unchecked, whichever draws them.
+const Diagram = as as typeof TreeDiagram;
 ---
 
 <div class="step" data-step>
   <slot />
   <div class="step-art">
-    <TreeDiagram {...diagram} />
+    <Diagram {...diagram} />
   </div>
 </div>

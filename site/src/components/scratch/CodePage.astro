@@ -1,0 +1,99 @@
+---
+import { BAR, CODE_PAD, EAR, INK, LINE, type Page, rowY } from './code';
+import { CH } from './text';
+
+/**
+ * A page of code with its top-left at (x, y). `plain` is an ordinary file, grey-outlined;
+ * `control` is the one doing the work, outlined in the diagram's tone. Rows in `dim` fade.
+ */
+interface Props {
+  page: Page;
+  x: number;
+  y: number;
+  kind: 'plain' | 'control';
+  dim?: number[];
+  /** Runs to pick out, by row and column: a soft wash behind the text, in the diagram's tone. */
+  marks?: { row: number; from: number; to: number }[];
+}
+const { page, x: l, y: t, kind, dim = [], marks = [] } = Astro.props as Props;
+const [r, b] = [l + page.w, t + page.h];
+/** Shiki's FontStyle.Italic bit (the enum itself is type-only). */
+const ITALIC = 1;
+---
+
+<g class:list={['page', kind]}>
+  <path class="shape" d={`M ${l} ${t} H ${r - EAR} L ${r} ${t + EAR} V ${b} H ${l} Z`} />
+  <path class="bar" d={`M ${l} ${b - BAR} H ${r} V ${b} H ${l} Z`} />
+  <path class="ear" d={`M ${r - EAR} ${t} V ${t + EAR} H ${r}`} />
+  <text class="file" x={l + page.w / 2} y={b - BAR / 2}>
+    {page.file}
+  </text>
+  {marks.map(({ row, from, to }) => (
+    <rect
+      class="mark"
+      x={l + CODE_PAD.left + from * CH - 3}
+      y={rowY(t, row) + INK - (LINE - 2) / 2}
+      width={(to - from) * CH + 5}
+      height={LINE - 2}
+      rx={3}
+    />
+  ))}
+  {/* Plain text: icons would land inside path strings like './orders'. */}
+  {page.lines.map((line, row) => (
+    <text
+      class:list={['code', { dim: dim.includes(row) }]}
+      x={l + CODE_PAD.left}
+      y={rowY(t, row)}
+      textLength={line.length * CH}
+    >
+      {(page.tokens[row] ?? []).map((token) => (
+        <tspan
+          fill={token.color}
+          font-style={(token.fontStyle ?? 0) & ITALIC ? 'italic' : undefined}
+        >
+          {token.content}
+        </tspan>
+      ))}
+    </text>
+  ))}
+</g>
+
+<style>
+  .shape {
+    fill: #fff;
+    stroke: #999;
+    stroke-width: 1.25;
+  }
+  .control .shape {
+    stroke: var(--tone);
+    stroke-width: 2;
+  }
+  .mark {
+    fill: var(--soft);
+  }
+  .bar {
+    fill: rgb(0 0 0 / 0.1);
+  }
+  .ear {
+    fill: none;
+    stroke: #999;
+    stroke-width: 0.75;
+  }
+  .control .ear {
+    stroke: var(--tone);
+    stroke-width: 1;
+  }
+  text {
+    transform: translateY(0.36em);
+    white-space: pre;
+    fill: #222;
+  }
+  .file {
+    opacity: 0.75;
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  .dim {
+    opacity: 0.35;
+  }
+</style>

@@ -3,6 +3,8 @@
  * Page shell for the Why scratch page (`pages/scratch/why.mdx`): the colour key and service legend
  * up top, then the page's Markdown. Styles are global because they style that Markdown.
  */
+import { Font } from 'astro:assets';
+
 import Dep from './Dep.astro';
 import { type Dep as DepName, deps } from './deps';
 
@@ -19,6 +21,7 @@ const names = Object.keys(deps) as DepName[];
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <title>Why scratch</title>
+    <Font cssVariable="--font-jetbrains" />
   </head>
   <body>
     <main class="why">
@@ -49,7 +52,7 @@ const names = Object.keys(deps) as DepName[];
     --panel: #120e0a;
     --frame: #555;
     --bg: #fff;
-    --font-code: ui-monospace, monospace;
+    --font-code: var(--font-jetbrains), monospace;
     --font-display: system-ui, sans-serif;
   }
   body {
@@ -83,8 +86,12 @@ const names = Object.keys(deps) as DepName[];
     margin: 32px 0 4px;
     font-size: 16px;
   }
+  /* A stepper straight under a heading sits as far below it as a paragraph would. */
+  .why h3 + .stepper {
+    margin-top: 1em;
+  }
   .why :not(pre) > code {
-    font-family: ui-monospace, monospace;
+    font-family: var(--font-jetbrains), monospace;
     font-size: 0.85em;
   }
   .why .expressive-code {

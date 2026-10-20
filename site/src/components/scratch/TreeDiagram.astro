@@ -35,17 +35,28 @@ interface Props {
   teleport?: { from: string[]; label: string; broken?: string[] };
   /** Draws an edge as one thin line per dependency it carries, each with its own icon. */
   strands?: Record<string, Dep[]>;
+  /**
+   * Numbers the services in the order the root builds them, line `i` of its code building
+   * `order[i]`: the same numbered badge on the line and on the service.
+   */
+  order?: string[];
+  /** Tips the tree's edges with little drill bits instead of plain arrowheads: prop drilling. */
+  drill?: boolean;
   /** The dependency just added: its strands, their pills and its icons in components, in green. */
   highlight?: Dep;
   /**
    * `below` hangs each service under the component that uses it. `beside` moves the service graph
    * up next to the root, framed together with it: for when the root builds everything.
+   * `outline`: the tree as an outline, one component per row like a file browser, with the service
+   * graph beside it, each service on the row of the component that uses it.
    * `injector`: the tree as an outline, one component per row like a file browser, and the
    * service graph framed as the injector the root creates, beside it. Each service sits on the row
    * of the component that asks for it, so `uses` edges run straight across. The frame keeps its
    * size while services appear in it (hide the rest with `hidden`).
+   * `build`: no tree, just the root's code with the service graph it builds under it, framed
+   * together.
    */
-  layout?: 'below' | 'beside' | 'injector';
+  layout?: 'below' | 'beside' | 'outline' | 'injector' | 'build';
   /**
    * How service nodes read. `name`: just what it is. `instance`: a file exporting a ready-made
    * `const`, fixed at import. `factory`: a file exporting a function that makes one, so whoever
@@ -70,6 +81,8 @@ const {
   teleport,
   strands = {},
   highlight,
+  order,
+  drill,
   layout = 'below',
   services: serviceStyle = 'name',
   focus,
@@ -105,11 +118,15 @@ const labelWidth = (text: string) =>
 /** Labels may span several lines (`\n`); those are left-aligned, like code. */
 const LINE = 20;
 const linesOf = (text: string) => text.split('\n');
-const beside = layout === 'beside';
+const build = layout === 'build';
+/** The root and the service graph framed together; `build` is the same, the graph under the code. */
+const beside = layout === 'beside' || build;
 const injector = layout === 'injector';
+/** The tree as an outline, the service graph beside it on the components' rows. */
+const outline = layout === 'outline' || injector;
 /** The service graph runs left to right, beside the tree. */
-const sideways = beside || injector;
-const width = (text: string, min = injector ? 60 : 110) =>
+const sideways = beside || outline;
+const width = (text: string, min = outline ? 60 : 110) =>
   Math.max(min, Math.round(Math.max(...linesOf(text).map(contentWidth)) + 24));
 const height = (text: string) =>
   linesOf(text).length === 1 ? H : linesOf(text).length * LINE + 12;
@@ -155,6 +172,22 @@ const serviceText: Record<string, { file: string; instance: string; factory: str
   },
   Config: { file: 'config.ts', instance: 'const config', factory: '{config} getConfig()' },
 };
+const renders = [
+  'App>Header',
+  'App>Dashboard',
+  'Header>UserMenu',
+  'Dashboard>OrdersTable',
+  'Dashboard>RevenueChart',
+];
+const usesEdges = ['UserMenu>AuthClient', 'OrdersTable>OrdersApi', 'RevenueChart>AnalyticsApi'];
+const needsEdges = [
+  'AuthClient>HttpClient',
+  'OrdersApi>HttpClient',
+  'AnalyticsApi>HttpClient',
+  'AnalyticsApi>Logger',
+  'HttpClient>Config',
+  'Logger>Config',
+];
 const files = serviceStyle !== 'name' && !beside;
 /** File nodes: a line of code over a grey bar with the file name. */
 const BAR = 16;
@@ -193,15 +226,38 @@ if (beside) {
     Object.assign(base[id]!, { x, y }, text ? { text } : {});
   }
 }
-if (injector) {
+/**
+ * Outline with files: each import is a line of code in the component or file that makes it, above
+ * its name, and its edge leaves from that line. Imports are small and quiet, ruled off from the
+ * name, which is bold: the name is what the box is. No labels on the edges, so the drawing stays narrow.
+ */
+const inline = outline && files;
+if (outline && !files) {
   for (const [id, text] of Object.entries(depOf)) base[id]!.text = text;
 }
+if (inline) {
+  for (const [id, node] of Object.entries(base)) {
+    const imports = [...(uses ? usesEdges : []), ...(needs ? needsEdges : [])]
+      .filter((k) => k.startsWith(`${id}>`))
+      .map((k) => labelText(k, (k.includes('>') && usesEdges.includes(k) ? uses : needs)!));
+    node.text = [...imports, node.text].join('\n');
+  }
+}
+/**
+ * Imports inline: a box's imports on a tight pitch, then a rule as far below the last as the first
+ * is below the top, then its name. Offsets are from the top of the box.
+ */
+const IMPORT = { top: 13, pitch: 14, name: 14, bottom: 14 };
+const importCount = (text: string) => (inline ? linesOf(text).length - 1 : 0);
+const ruleOffset = (imports: number) => IMPORT.top * 2 + (imports - 1) * IMPORT.pitch;
+const inlineHeight = (text: string) => ruleOffset(importCount(text)) + IMPORT.name + IMPORT.bottom;
 const nodes = Object.fromEntries(
   Object.entries(base).map(([id, node]) => {
     const text = labels[id] ?? node.text;
     const w = width(text, sideways && node.service ? 70 : undefined);
     const file = files && node.service;
-    return [id, { ...node, text, w, h: file ? height(text) + BAR + 2 : height(text), file }];
+    const h = importCount(text) > 0 ? inlineHeight(text) : height(text);
+    return [id, { ...node, text, w, h: file ? h + BAR + 2 : h, file }];
   }),
 );
 // Beside: each column of the service graph left-aligned, on the left edge of its widest node.
@@ -222,6 +278,9 @@ const appNode = nodes.App!;
 appNode.y = 30 + H / 2 - appNode.h / 2;
 const appTop = appNode.y - appNode.h / 2;
 const rootH = root ? height(root.text) : 0;
+/** Room left of the root's code for each line's badge. */
+const GUTTER = 20;
+const BADGE_R = 7;
 // Beside, the root sits in a frame, so leave room under it for what's handed to <App>.
 const ROOT_GAP = beside ? 60 : 40;
 if (root) {
@@ -229,32 +288,30 @@ if (root) {
     x: appNode.x,
     y: appTop - ROOT_GAP - rootH / 2,
     text: root.text,
-    w: width(root.text),
+    w: width(root.text) + (order ? GUTTER : 0),
     h: rootH,
     file: false,
   };
-  if (beside) {
-    for (const node of Object.values(nodes)) {
-      if (node.service) node.y += nodes.Root.y;
-    }
+  if (build) {
+    // The code at the left; the graph under it, centred.
+    const rootNode = nodes.Root;
+    rootNode.x = 14 + rootNode.w / 2;
+    const graph = Object.values(nodes).filter((n) => n.service);
+    const graphTop = Math.min(...graph.map((n) => n.y - n.h / 2));
+    const graphLeft = Math.min(...graph.map((n) => n.x - n.w / 2));
+    const graphRight = Math.max(...graph.map((n) => n.x + n.w / 2));
+    const dx = rootNode.x - (graphLeft + graphRight) / 2;
+    const dy = rootNode.y + rootNode.h / 2 + 30 - graphTop;
+    for (const node of graph) Object.assign(node, { x: node.x + dx, y: node.y + dy });
+  } else if (beside) {
+    // Level with the root, and clear of it on the right, however wide its code; further with
+    // badges, which sit over each service's corner.
+    const graph = Object.values(nodes).filter((n) => n.service);
+    const clear = nodes.Root.x + nodes.Root.w / 2 + (order ? 32 : 14);
+    const shift = Math.max(0, clear - Math.min(...graph.map((n) => n.x - n.w / 2)));
+    for (const node of graph) Object.assign(node, { x: node.x + shift, y: node.y + nodes.Root.y });
   }
 }
-const renders = [
-  'App>Header',
-  'App>Dashboard',
-  'Header>UserMenu',
-  'Dashboard>OrdersTable',
-  'Dashboard>RevenueChart',
-];
-const usesEdges = ['UserMenu>AuthClient', 'OrdersTable>OrdersApi', 'RevenueChart>AnalyticsApi'];
-const needsEdges = [
-  'AuthClient>HttpClient',
-  'OrdersApi>HttpClient',
-  'AnalyticsApi>HttpClient',
-  'AnalyticsApi>Logger',
-  'HttpClient>Config',
-  'Logger>Config',
-];
 /** Injector: the outline's rows, each component's depth under the root, top to bottom. */
 const OUTLINE: [string, number][] = [
   ['App', 1],
@@ -286,7 +343,8 @@ const callWidth = (text: string) => {
   const call = callOf(text);
   return call ? CALL.pad * 2 + CALL.indent + pillWidth(call.arg) : pillWidth(text);
 };
-const usesWidth = uses ? Math.max(...usesEdges.map((k) => callWidth(labelText(k, uses)))) : 0;
+const usesWidth =
+  uses && !inline ? Math.max(...usesEdges.map((k) => callWidth(labelText(k, uses)))) : 0;
 /** Injector: each leaf's lane up or down to its service, just outside the frame, top leaf outermost. */
 const LANE_GAP = 12;
 const laneX = (leaf: string, frameX: number) =>
@@ -295,20 +353,63 @@ const laneX = (leaf: string, frameX: number) =>
 const LANES = 14 + leaves.length * LANE_GAP;
 /** Gap between columns of the service graph: room for an edge to turn and run into the next. */
 const COLUMN_GAP = 40;
-if (injector) {
+/** Outline: where the lanes end and the graph begins (the injector's frame, when there is one). */
+let graphEdge = 0;
+/** The y of a node's `i`th line of text; a file's lines sit above its name bar. */
+const lineY = (node: (typeof nodes)[string], i: number) => {
+  const imports = importCount(node.text);
+  if (imports > 0) {
+    const top = node.y - node.h / 2;
+    return i < imports
+      ? top + IMPORT.top + i * IMPORT.pitch
+      : top + ruleOffset(imports) + IMPORT.name;
+  }
+  return (node.file ? node.y - BAR / 2 : node.y) + (i - (linesOf(node.text).length - 1) / 2) * LINE;
+};
+/** Where a box's imports are ruled off from its name. */
+const ruleY = (node: (typeof nodes)[string]) =>
+  node.y - node.h / 2 + ruleOffset(importCount(node.text));
+/** Imports inline: an edge arrives at the last line of its target, the name it imports. */
+const entryY = (node: (typeof nodes)[string]) =>
+  inline ? lineY(node, linesOf(node.text).length - 1) : node.y;
+/** ...and leaves from the import line that makes it. */
+const exitY = (key: string) => {
+  const source = key.split('>')[0]!;
+  const from = nodes[source]!;
+  if (!inline) return from.y;
+  const out = [...usesEdges, ...needsEdges].filter((k) => k.startsWith(`${source}>`));
+  return lineY(from, out.indexOf(key));
+};
+if (outline) {
   const rootNode = nodes.Root;
+  // Depths count from the root: without one, the outline starts a level in.
+  const shallower = rootNode ? 0 : 1;
   if (rootNode) Object.assign(rootNode, { x: 2 + rootNode.w / 2, y: rootNode.h / 2 });
   let rowTop = (rootNode?.h ?? 0) + ROW_GAP;
   for (const [id, depth] of OUTLINE) {
     const node = nodes[id]!;
-    // A call's container gets a little more room than a bare component.
-    const rowH = uses && leaves.includes(id) ? CALL_H + 6 : COMPONENT_H;
-    Object.assign(node, {
-      x: 2 + depth * INDENT + node.w / 2,
-      y: rowTop + rowH / 2,
-      h: COMPONENT_H,
-    });
-    rowTop += rowH + ROW_GAP;
+    const lines = linesOf(node.text).length;
+    node.h = lines === 1 ? COMPONENT_H : inline ? inlineHeight(node.text) : lines * LINE + 4;
+    // How far the row reaches above and below the component's centre.
+    let [up, down] = [node.h / 2, node.h / 2];
+    const used = usesEdges.find((k) => k.startsWith(`${id}>`));
+    if (uses && used) {
+      // The service it uses shares its row, so the row fits that too: with imports inline, the
+      // service's name level with the component's import line; otherwise centred on the row.
+      const service = nodes[used.split('>')[1]!]!;
+      if (inline) {
+        node.y = 0;
+        const exit = lineY(node, 0);
+        const above = entryY(service) - (service.y - service.h / 2);
+        up = Math.max(up, above - exit + 3);
+        down = Math.max(down, service.h - above + exit + 3);
+      } else {
+        const half = (callOf(uses) ? CALL_H + 6 : H + 6) / 2;
+        [up, down] = [Math.max(up, half), Math.max(down, half)];
+      }
+    }
+    Object.assign(node, { x: 2 + (depth - shallower) * INDENT + node.w / 2, y: rowTop + up });
+    rowTop = node.y + down + ROW_GAP;
   }
   // Each column of the graph after the last, left-aligned, the widest of it setting the pace.
   const column = (ids: string[], after: number) => {
@@ -316,26 +417,32 @@ if (injector) {
     for (const id of ids) nodes[id]!.x = after + nodes[id]!.w / 2;
     return after + w;
   };
+  // Placed by where edges arrive: a file's name line, or the middle of anything else.
+  const at = (id: string, y: number) => (nodes[id]!.y += y - entryY(nodes[id]!));
   const leafRight = Math.max(...leaves.map((id) => nodes[id]!.x + nodes[id]!.w / 2));
-  const apis = column(
-    ['AuthClient', 'OrdersApi', 'AnalyticsApi'],
-    leafRight + usesWidth + 30 + LANES + FRAME_INSET,
-  );
+  const graphLeft = leafRight + (inline ? 0 : usesWidth + 30) + LANES + FRAME_INSET;
+  graphEdge = graphLeft - 12 - FRAME_INSET;
+  const apis = column(['AuthClient', 'OrdersApi', 'AnalyticsApi'], graphLeft);
   const mids = column(['HttpClient', 'Logger'], apis + COLUMN_GAP);
   column(['Config'], mids + COLUMN_GAP);
   // On the row of whoever asks for it; the rest between, logger level with analytics' lower port.
-  const at = (id: string, y: number) => (nodes[id]!.y = y);
-  at('AuthClient', nodes.UserMenu!.y);
-  at('OrdersApi', nodes.OrdersTable!.y);
-  at('AnalyticsApi', nodes.RevenueChart!.y);
-  at('HttpClient', nodes.Dashboard!.y);
-  at('Logger', nodes.AnalyticsApi!.y + nodes.AnalyticsApi!.h / 2 - 6);
-  at('Config', (nodes.HttpClient!.y + nodes.Logger!.y) / 2);
+  at('AuthClient', exitY('UserMenu>AuthClient'));
+  at('OrdersApi', exitY('OrdersTable>OrdersApi'));
+  at('AnalyticsApi', exitY('RevenueChart>AnalyticsApi'));
+  at('HttpClient', entryY(nodes.Dashboard!));
+  at(
+    'Logger',
+    inline ? exitY('AnalyticsApi>Logger') : nodes.AnalyticsApi!.y + nodes.AnalyticsApi!.h / 2 - 6,
+  );
+  at('Config', (exitY('HttpClient>Config') + exitY('Logger>Config')) / 2);
   // Then the whole graph to the middle of the frame, which runs from the root's first line to the
-  // bottom of the tree.
+  // bottom of the tree (without a root, the tree's top).
   const graph = Object.values(nodes).filter((n) => n.service);
-  const frameTop = rootNode ? rootNode.y - (rootNode.h - 12) / 2 + LINE / 2 - 24 : 0;
-  const frameBottom = nodes.RevenueChart!.y + CALL_H / 2 + 12;
+  const frameTop = rootNode
+    ? rootNode.y - (rootNode.h - 12) / 2 + LINE / 2 - 24
+    : nodes.App!.y - COMPONENT_H / 2;
+  const frameBottom =
+    nodes.RevenueChart!.y + (callOf(uses ?? '') ? CALL_H / 2 + 12 : nodes.RevenueChart!.h / 2);
   const graphTop = Math.min(...graph.map((n) => n.y - n.h / 2));
   const graphBottom = Math.max(...graph.map((n) => n.y + n.h / 2));
   const shift = Math.min(0, (frameTop + frameBottom) / 2 - (graphTop + graphBottom) / 2);
@@ -346,7 +453,9 @@ if (injector) {
 const framed: (typeof nodes)[string][] = injector
   ? Object.values(nodes).filter((n) => n.service)
   : beside && root
-    ? Object.values(nodes).filter((n) => n.service || n === nodes.Root)
+    ? Object.entries(nodes)
+        .filter(([id, n]) => (n.service || id === 'Root') && marks[id] !== 'hidden')
+        .map(([, n]) => n)
     : [];
 const frame = framed.length
   ? {
@@ -358,6 +467,15 @@ const frame = framed.length
   : undefined;
 /** Where the root's first line sits: in the injector layout, the line that creates it. */
 const rootLineY = nodes.Root ? nodes.Root.y - (nodes.Root.h - 12) / 2 + LINE / 2 : 0;
+// Build: as much room under the graph as over it, between it and the code.
+if (build && frame) {
+  const graphTop = Math.min(
+    ...Object.values(nodes)
+      .filter((n) => n.service)
+      .map((n) => n.y - n.h / 2),
+  );
+  frame.y2 += graphTop - (nodes.Root!.y + nodes.Root!.h / 2) - 12;
+}
 // Injector: up past the root's first line too, so the arrow from it runs straight in.
 if (injector && frame && nodes.Root) {
   frame.y = Math.min(frame.y, rootLineY - 24);
@@ -368,7 +486,7 @@ const line = (key: string) => {
   const [a, b] = key.split('>');
   const from = nodes[a!]!;
   const to = nodes[b!]!;
-  if ((sideways && 'service' in from && from.service) || injector) {
+  if ((sideways && 'service' in from && from.service) || outline) {
     return { x1: from.x + from.w / 2, y1: from.y, x2: to.x - to.w / 2 - 4, y2: to.y };
   }
   return { x1: from.x, y1: from.y + from.h / 2, x2: to.x, y2: to.y - to.h / 2 - 4 };
@@ -426,9 +544,12 @@ const STRAND_GAP = 20;
 /** How far an edge's outermost strand sits from its centre line. */
 const strandSpread = (key: string) => (((strands[key]?.length ?? 1) - 1) / 2) * STRAND_GAP;
 const port = (key: string, axis: 'x' | 'y') => {
+  if (inline && axis === 'y') return exitY(key);
   const source = key.split('>')[0]!;
   const from = nodes[source]!;
-  const target = (k: string) => nodes[k.split('>')[1]!]![axis];
+  // Across, toward where the edge arrives: a file's name line, not its middle.
+  const target = (k: string) =>
+    axis === 'y' ? entryY(nodes[k.split('>')[1]!]!) : nodes[k.split('>')[1]!]!.x;
   const siblings = routedKeys()
     .filter((k) => k.startsWith(`${source}>`))
     .toSorted((a, b) => target(a) - target(b));
@@ -464,22 +585,22 @@ const routePoints = (key: string, d = 0): Pt[] => {
   const to = nodes[b!]!;
   const inset = 12;
   // Injector, a leaf asking for a service: across under its label, along its lane, and in.
-  if (injector && 'service' in to && to.service && !from.service && frame) {
-    const lane = laneX(a!, frame.x);
+  if (outline && 'service' in to && to.service && !from.service) {
+    const lane = laneX(a!, graphEdge);
     return [
-      [from.x + from.w / 2, from.y],
-      [lane, from.y],
-      [lane, to.y],
-      [to.x - to.w / 2 - 4, to.y],
+      [from.x + from.w / 2, exitY(key)],
+      [lane, exitY(key)],
+      [lane, entryY(to)],
+      [to.x - to.w / 2 - 4, entryY(to)],
     ];
   }
   // Injector: the outline's elbows, down from the parent's first character and across.
-  if (injector && !('service' in from && from.service)) {
+  if (outline && !('service' in from && from.service)) {
     const x = from.x - from.w / 2 + 12;
     return [
       [x, from.y + from.h / 2],
-      [x, to.y],
-      [to.x - to.w / 2, to.y],
+      [x, entryY(to)],
+      [to.x - to.w / 2, entryY(to)],
     ];
   }
   // Beside: the service graph runs left to right, so route it the same way, turned sideways.
@@ -489,16 +610,16 @@ const routePoints = (key: string, d = 0): Pt[] => {
     const left = to.x - to.w / 2;
     const py = port(key, 'y');
     const lane = left - TRUNK;
-    return py === to.y
+    return py === entryY(to)
       ? [
           [sx, py],
-          [left - 4, to.y],
+          [left - 4, entryY(to)],
         ]
       : [
           [sx, py],
           [lane, py],
-          [lane, to.y],
-          [left - 4, to.y],
+          [lane, entryY(to)],
+          [left - 4, entryY(to)],
         ];
   }
   // The tree branches from the middle of each parent, halfway down, like an org chart.
@@ -537,7 +658,7 @@ const onChannel = (key: string, d = 0) => {
   return { x: pts[0]![0], y: pts[0]![1] + (pts[1]![1] - pts[0]![1]) * 0.6 };
 };
 const routed = (kind: string) =>
-  kind === 'renders' || kind === 'needs' || (injector && kind === 'uses');
+  kind === 'renders' || kind === 'needs' || (outline && kind === 'uses');
 
 const hidden = (key: string) => key.split('>').some((id) => marks[id] === 'hidden');
 const edges = [
@@ -553,6 +674,7 @@ const edges = [
 /** An edge into or out of a ghost (not built, not rendered yet) is a ghost too. */
 const ghostly = (key: string) => key.split('>').some((id) => marks[id] === 'ghost');
 const edgeLabelBoxes = edges.flatMap(({ key, kind, label }) => {
+  if (inline && (kind === 'uses' || kind === 'needs')) return [];
   const carried = strands[key];
   if (carried) {
     const offsets = strandOffsets(key);
@@ -580,11 +702,11 @@ const edgeLabelBoxes = edges.flatMap(({ key, kind, label }) => {
       },
     ];
   }
-  if (kind === 'uses' && injector) {
+  if (kind === 'uses' && outline) {
     // On the run across, all lined up in the gap between the tree and the injector.
     const text = labelText(key, raw);
     // Left-aligned, so the spines line up.
-    const x = (frame?.x ?? 0) - LANES - usesWidth - 8 + callWidth(text) / 2;
+    const x = graphEdge - LANES - usesWidth - 8 + callWidth(text) / 2;
     return [{ text, x, y: from.y, tone: edgeTones[key], ghost: ghostly(key), call: true }];
   }
   if (kind === 'uses') {
@@ -596,7 +718,21 @@ const edgeLabelBoxes = edges.flatMap(({ key, kind, label }) => {
   return [{ text: labelText(key, raw), ...at, tone: edgeTones[key], ghost: ghostly(key) }];
 });
 
-const viewWidth = injector && frame ? frame.x2 + 4 : beside ? 830 : 680;
+/** What's drawn: everything not hidden, which is all the drawing has to fit. */
+const shown = Object.entries(nodes)
+  .filter(([id]) => marks[id] !== 'hidden')
+  .map(([, node]) => node);
+const viewWidth = outline
+  ? (frame?.x2 ?? Math.max(...shown.map((n) => n.x + n.w / 2))) + 4
+  : build && frame
+    ? frame.x2 + 4
+    : beside
+      ? // With no service graph, just as wide as the tree.
+        Object.entries(nodes).every(([id, n]) => !n.service || marks[id] === 'hidden')
+        ? // Context's curves round the right of the tree run out past it.
+          Math.max(...shown.map((n) => n.x + n.w / 2), frame?.x2 ?? 0, teleport ? 680 : 0) + 12
+        : Math.max(830, (frame?.x2 ?? 0) + 4)
+      : 680;
 // Context: a curve from the leaf up to <App>, round the outside of the tree.
 const app = nodes.App!;
 const curves = (teleport?.from ?? []).map((id) => {
@@ -667,16 +803,35 @@ const creates =
     : undefined;
 // A root outside any frame carries its title (its file) above it.
 const rootTitle = root?.title && !(beside && frame) ? root.title : undefined;
-const top = injector
-  ? Math.min(frame ? frame.y - 28 : 0, -28)
+/**
+ * Outline, focused on services: a band behind the service graph from where the arrows arrive, and
+ * the two sides labelled.
+ */
+const band =
+  outline && !frame && focus === 'services'
+    ? {
+        x: graphEdge,
+        y: Math.min(...Object.values(nodes).map((n) => n.y - n.h / 2)) - 12,
+        y2: Math.max(...Object.values(nodes).map((n) => n.y + n.h / 2)) + 12,
+      }
+    : undefined;
+const top = outline
+  ? Math.min(frame ? frame.y - 28 : 0, rootTitle ? -28 : -4, band ? band.y - 24 : 0)
   : Math.min(
       frame ? frame.y - 28 : Infinity,
       (root ? appTop - ROOT_GAP - rootH - (rootTitle ? 18 : 0) : appTop) - 10,
     );
 const noteBelow = Object.values(notes).some((note) => Array.isArray(note) && note[1] === 'below');
-const bottom =
-  injector && frame
-    ? Math.max(frame.y2, nodes.RevenueChart!.y + CALL_H / 2) + 6
+const bottom = outline
+  ? Math.max(
+      frame?.y2 ?? 0,
+      band ? band.y2 - 4 : 0,
+      ...shown.map((n) => n.y + n.h / 2),
+      nodes.RevenueChart!.y + (callOf(uses ?? '') ? CALL_H / 2 : 0),
+    ) + 6
+  : beside && frame && marks.App === 'hidden'
+    ? // Beside, with no tree yet: just the frame.
+      frame.y2 + 6
     : (beside ? 245 : files ? 565 : 450) + (noteBelow ? 20 : 0);
 // A label out past the left edge widens the drawing that way.
 const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 - 12));
@@ -684,7 +839,7 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
 ---
 
 <svg
-  class:list={['tree', { wide: sideways, 'focus-services': focus === 'services' }]}
+  class:list={['tree', { wide: sideways, outline, 'focus-services': focus === 'services' }]}
   viewBox={`${left} ${top} ${viewWidth - left} ${bottom - top}`}
   style={`--view-width: ${viewWidth - left}px`}
   xmlns="http://www.w3.org/2000/svg"
@@ -708,9 +863,48 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
         <path d="M0,0 L8,4 L0,8 z" />
       </marker>
     ))}
+    {/*
+      A drill: a collar, a white gap, then a cone with a solid top and spiral grooves. Its tip lands
+      where a plain arrowhead's would.
+    */}
+    {['plain', 'red', 'purple', 'orange', 'blue', 'green'].map((tone) => (
+      <marker
+        id={`${uid}-drill-${tone}`}
+        class={`tip drill ${tone}`}
+        viewBox="0 0 15 11"
+        refX="11"
+        refY="5.5"
+        markerWidth="15"
+        markerHeight="11"
+        markerUnits="userSpaceOnUse"
+        orient="auto"
+      >
+        <path d="M0.5,0 H3 V11 H0.5 Z M3.5,0 H4.5 L15,5.5 L4.5,11 H3.5 Z" />
+        <path class="gap" d="M3,0 H3.5 V11 H3 Z" />
+        <path class="flute" d="M5.1,10.2 L6.6,1.6 M7.8,9.1 L9.8,3.2 M10.8,7.5 L12.3,4.4" />
+      </marker>
+    ))}
   </defs>
 
-  {!beside && focus === 'services' && (
+  {band && (
+    <>
+      <rect
+        class="band"
+        x={band.x}
+        y={band.y}
+        width={viewWidth - band.x}
+        height={band.y2 - band.y}
+        rx="6"
+      />
+      <text class="zone strong" x="2" y={band.y - 8}>
+        components
+      </text>
+      <text class="zone strong" x={band.x} y={band.y - 8}>
+        services
+      </text>
+    </>
+  )}
+  {!beside && !outline && focus === 'services' && (
     <>
       <rect
         class="band"
@@ -728,7 +922,7 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
       </text>
     </>
   )}
-  {!beside && !injector && focus !== 'services' && (
+  {!beside && !outline && focus !== 'services' && (
     <>
       <line class="divider" x1="10" y1="222" x2={viewWidth - 10} y2="222" />
       <text class="zone" x="10" y="216">
@@ -762,7 +956,8 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
 
   {edges.map(({ key, kind }) => {
     const tone = edgeTones[key];
-    const marker = `url(#${uid}-${tone ?? 'plain'})`;
+    const tip = (t?: string) => `url(#${uid}-${drill ? 'drill-' : ''}${t ?? 'plain'})`;
+    const marker = tip(tone);
     const carried = strands[key];
     if (carried) {
       return strandOffsets(key).map((d, i) => {
@@ -771,20 +966,20 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
           <path
             class:list={['edge', 'strand', fresh ? 'green' : tone]}
             d={route(key, d)}
-            marker-end={fresh ? `url(#${uid}-green)` : marker}
+            marker-end={fresh ? tip('green') : marker}
           />
         );
       });
     }
     return routed(kind) ? (
       <path
-        class:list={['edge', kind, tone, { ghost: ghostly(key), inject: injector }]}
+        class:list={['edge', kind, tone, { ghost: ghostly(key), solid: injector || inline }]}
         d={route(key)}
-        marker-end={injector && kind === 'renders' ? undefined : marker}
+        marker-end={outline && kind === 'renders' ? undefined : marker}
       />
     ) : (
       <line
-        class:list={['edge', kind, tone, { ghost: ghostly(key), inject: injector }]}
+        class:list={['edge', kind, tone, { ghost: ghostly(key), solid: injector || inline }]}
         {...line(key)}
         marker-end={marker}
       />
@@ -816,7 +1011,7 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
             return (
               <>
                 <path
-                  class="shape"
+                  class="shape page"
                   d={`M ${l} ${t} H ${r - EAR} L ${r} ${t + EAR} V ${b} H ${l} Z`}
                 />
                 <path class="bar" d={`M ${l} ${b - BAR} H ${r} V ${b} H ${l} Z`} />
@@ -839,12 +1034,23 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
         )}
         {linesOf(node.text).map((text, row, rows) => {
           const multi = rows.length > 1;
-          let x = multi ? node.x - node.w / 2 + 12 : node.x - contentWidth(text) / 2;
-          const middle = 'file' in node && node.file ? node.y - BAR / 2 : node.y;
-          const y = middle + (row - (rows.length - 1) / 2) * LINE;
+          const gutter = id === 'Root' && order ? GUTTER : 0;
+          let x = multi ? node.x - node.w / 2 + 12 + gutter : node.x - contentWidth(text) / 2;
+          // Imports inline: the lines above the name are small and quiet; the name is bold.
+          const imports = id === 'Root' ? 0 : importCount(node.text);
+          const quiet = row < imports;
+          // Every name is bold, imports or not, so components and files each read alike. A service
+          // that isn't a file is a value, not a name: it stays plain.
+          const name =
+            id !== 'Root' && !quiet && (!('service' in node && node.service) || Boolean(node.file));
+          const scale = quiet ? 10 / 12 : 1;
+          const y =
+            id === 'Root'
+              ? node.y - (node.h - 12) / 2 + LINE / 2 + row * LINE
+              : lineY(node as (typeof nodes)[string], row);
           const placed = segment(text).map((seg) => {
             const at = x;
-            x += 'icon' in seg ? ICON_STEP : seg.text.length * CH;
+            x += ('icon' in seg ? ICON_STEP : seg.text.length * CH) * scale;
             return { seg, at, end: x };
           });
           // Something missing gets a dashed hole round it, struck through, in the error colour.
@@ -874,16 +1080,17 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
                   ]}
                   href={`#${uid}-${seg.icon}`}
                   x={at}
-                  y={y - ICON / 2}
-                  width={ICON}
-                  height={ICON}
+                  y={y - (ICON * scale) / 2}
+                  width={ICON * scale}
+                  height={ICON * scale}
+                  opacity={quiet ? 0.65 : undefined}
                 />
               ) : (
                 <text
-                  class:list={{ missing: seg.missing }}
+                  class:list={{ missing: seg.missing, quiet, name }}
                   x={at}
                   y={y}
-                  textLength={seg.text.length * CH}
+                  textLength={seg.text.length * CH * scale}
                 >
                   {seg.text}
                 </text>
@@ -892,10 +1099,38 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
             gap.length > 0 && (
               <line class="missing" x1={gapStart + ICON_STEP} x2={gapEnd - 2} y1={y} y2={y} />
             ),
+            row === imports - 1 && (
+              <line
+                class="rule"
+                x1={node.x - node.w / 2}
+                x2={node.x + node.w / 2}
+                y1={ruleY(node as (typeof nodes)[string])}
+                y2={ruleY(node as (typeof nodes)[string])}
+              />
+            ),
           ];
         })}
       </g>
     ))}
+  {/* Build order: a numbered badge on each line of the root's code, and on what it builds. */}
+  {order &&
+    nodes.Root &&
+    order.flatMap((id, i) => {
+      const node = nodes[id]!;
+      const rootNode = nodes.Root!;
+      const lineY = rootNode.y - (rootNode.h - 12) / 2 + LINE / 2 + i * LINE;
+      return [
+        { x: rootNode.x - rootNode.w / 2 + 12 + BADGE_R, y: lineY },
+        { x: node.x - node.w / 2 + 2, y: node.y - node.h / 2 + 1 },
+      ].map(({ x, y }) => (
+        <g class="badge">
+          <circle cx={x} cy={y} r={BADGE_R} />
+          <text x={x} y={y}>
+            {i + 1}
+          </text>
+        </g>
+      ));
+    })}
   {/* Edge labels last, so their boxes sit over everything they cross. */}
   {boxes.map((box) => {
     const { x: cx, y: cy, tone, ghost } = box;
@@ -995,7 +1230,7 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
   .tree {
     height: auto;
     overflow: visible;
-    font-family: ui-monospace, monospace;
+    font-family: var(--font-jetbrains), monospace;
     font-size: 12px;
   }
   .divider {
@@ -1016,24 +1251,20 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
   }
   .focus-services .node.service:not([data-mark]) .shape {
     fill: #fff;
-    stroke: #444;
-    stroke-width: 1.5;
   }
-  .focus-services .node.service:not([data-mark]) .ear {
-    stroke: #444;
-  }
-  .focus-services .edge.needs:not(.purple, .orange, .blue, .red) {
+  .focus-services:not(.outline) .edge.needs:not(.purple, .orange, .blue, .red) {
     stroke: #555;
     stroke-width: 2;
   }
-  .focus-services .node:not(.service, [data-mark]) .shape {
+  /* The tree as faint outlines; not in an outline, where the band already sets the graph apart. */
+  .focus-services:not(.outline) .node:not(.service, [data-mark]) .shape {
     fill: none;
     stroke: #ccc;
   }
-  .focus-services .node:not(.service, [data-mark]) {
+  .focus-services:not(.outline) .node:not(.service, [data-mark]) {
     color: #aaa;
   }
-  .focus-services .edge.renders {
+  .focus-services:not(.outline) .edge.renders {
     stroke: #ddd;
     stroke-width: 1;
   }
@@ -1051,7 +1282,7 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
     opacity: 0.75;
     font-size: 10px;
     text-anchor: middle;
-    dominant-baseline: central;
+    transform: translateY(0.36em);
   }
   /* Darkens whatever the node's fill is, so it works with every mark. */
   .bar {
@@ -1061,8 +1292,13 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
     fill: none;
     stroke: inherit;
   }
+  /* A page: its outline a touch heavier than a component's, its fold a touch lighter. */
+  .page {
+    stroke-width: 1.25;
+  }
   .node .ear {
     stroke: #999;
+    stroke-width: 0.75;
   }
   [data-mark] .ear {
     stroke: var(--tone);
@@ -1087,8 +1323,11 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
     fill: #777;
     font-weight: 600;
   }
-  /* Asking the injector is a plain call, not a lookup: solid, unlike context's dashed reach. */
-  .edge.uses.inject {
+  /*
+   * Asking the injector is a plain call, not a lookup: solid, unlike context's dashed reach. So is
+   * an import written out in the file that makes it.
+   */
+  .edge.uses.solid {
     stroke-dasharray: none;
   }
   .edge.red,
@@ -1142,6 +1381,17 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
   .tip:not(.plain) path {
     fill: var(--tone);
   }
+  /* The white gap between a drill's collar and its cone, over the edge running under it. */
+  .tip path.gap {
+    fill: #fff;
+  }
+  /* A drill bit's flutes: white grooves cut across it, whatever its colour. */
+  .tip path.flute {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 1;
+    stroke-linecap: round;
+  }
   .pill rect {
     fill: #fff;
     stroke: #bbb;
@@ -1164,10 +1414,20 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
   .pill.green {
     color: var(--tone);
   }
+  .badge circle {
+    fill: #d70;
+  }
+  .badge text {
+    fill: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    text-anchor: middle;
+    transform: translateY(0.36em);
+  }
   .call-label {
     fill: currentColor;
     font-size: 10px;
-    dominant-baseline: central;
+    transform: translateY(0.36em);
   }
   .pill .edge-label {
     fill: currentColor;
@@ -1179,7 +1439,7 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
     white-space: pre;
     fill: #777;
     font-size: 11px;
-    dominant-baseline: central;
+    transform: translateY(0.36em);
   }
   .edge-label.red,
   .edge-label.purple,
@@ -1195,8 +1455,20 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
   .node {
     color: #222;
   }
+  /* Imports inline: quiet imports, a hairline under them, a bold name. */
+  .node text.quiet {
+    font-size: 10px;
+    opacity: 0.65;
+  }
+  .node text.name {
+    font-weight: 600;
+  }
+  .node .rule {
+    stroke: currentColor;
+    stroke-opacity: 0.2;
+  }
   .node text {
-    dominant-baseline: central;
+    transform: translateY(0.36em);
     white-space: pre;
     fill: currentColor;
   }
@@ -1242,6 +1514,9 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
     stroke: var(--tone);
     stroke-width: 2;
   }
+  [data-mark$='-soft'] .ear {
+    stroke-width: 1;
+  }
   [data-mark='ghost'] .shape {
     fill: none;
     stroke-dasharray: 4 3;
@@ -1257,7 +1532,7 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
     fill: #555;
     font-size: 11px;
     font-style: italic;
-    dominant-baseline: central;
+    transform: translateY(0.36em);
   }
   /* A gap where something should be: dashed and struck through, in the error colour. */
   rect.missing {

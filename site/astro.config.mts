@@ -29,8 +29,9 @@ export default defineConfig({
       provider: fontProviders.fontsource(),
       name: 'JetBrains Mono',
       cssVariable: '--font-jetbrains',
-      weights: [400],
-      styles: ['normal'],
+      // 600, 700 and italic for the scratch diagrams' names, tags and notes.
+      weights: [400, 600, 700],
+      styles: ['normal', 'italic'],
       subsets: ['latin'],
       fallbacks: ['monospace'],
     },

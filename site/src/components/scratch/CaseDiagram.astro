@@ -1,13 +1,13 @@
 ---
-import { codeToTokens } from 'shiki';
-
+import { BAR, type Code, EAR, highlight } from './code';
+import CodePage from './CodePage.astro';
 import { deps } from './deps';
 import { CH, H, ICON, ICON_STEP, contentWidth, segment } from './text';
 
 /**
  * One use case, zoomed in: the pieces that ask for a dependency (left), the default they'd get
  * (ghosted) and what they get instead (right), and under that, the file that makes the swap,
- * with its code. Beats 3 and 7 draw the same cases with this, so only the mechanism changes.
+ * with its code.
  */
 type Tone = 'purple' | 'blue';
 interface Box {
@@ -22,36 +22,36 @@ interface Props {
   /** What they'd get by default, ghosted. Leave out when the swap happens in place. */
   original?: Box;
   replacement: Box;
-  control: { file: string; code: string };
+  control: Code;
   /** The catch (or the lack of one), under the code. */
   note?: string;
 }
 const { tone, consumers, original, replacement, control, note } = Astro.props as Props;
 
-const BAR = 16;
-const EAR = 10;
-const LINE = 18;
 const RADIUS = 8;
 const GAP = 12;
 const boxH = (box: Box) => (box.file ? H + BAR + 2 : H);
 const boxW = (box: Box) => Math.max(120, Math.round(contentWidth(box.text) + 28));
 
+const top = 20;
+const controlCode = await highlight(control);
+const { w: codeW, h: codeH } = controlCode;
+const tw = Math.max(boxW(replacement), original ? boxW(original) : 0);
+
 // Consumers stacked on the left, around a shared centre line.
 const cw = Math.max(...consumers.map(boxW));
 const cx = 10 + cw / 2;
 const stackH = consumers.reduce((sum, c) => sum + boxH(c), 0) + GAP * (consumers.length - 1);
-const top = 20;
 const mid = top + Math.max(stackH, original ? 2 * 48 + 24 : 48) / 2;
-let y = mid - stackH / 2;
+let stackY = mid - stackH / 2;
 const placedConsumers = consumers.map((c) => {
   const h = boxH(c);
-  const node = Object.assign({}, c, { x: cx, y: y + h / 2, w: cw, h });
-  y += h + GAP;
+  const node = Object.assign({}, c, { x: cx, y: stackY + h / 2, w: cw, h });
+  stackY += h + GAP;
   return node;
 });
 
 // The default above the line, the replacement below it (or on it, if there's no default).
-const tw = Math.max(boxW(replacement), original ? boxW(original) : 0);
 const tx = cx + cw / 2 + 80 + tw / 2;
 const placedOriginal = original && {
   ...original,
@@ -68,28 +68,18 @@ const placedReplacement = {
   h: boxH(replacement),
 };
 
-// The file that makes the swap: under the replacement, its arrow pointing up into it. Its code is
-// highlighted at build time, by file extension, one row of coloured runs per line.
-const lang = control.file.startsWith('.env')
-  ? 'dotenv'
-  : control.file.endsWith('.tsx')
-    ? 'tsx'
-    : 'ts';
-const { tokens } = await codeToTokens(control.code, { lang, theme: 'github-light' });
-const lines = control.code.split('\n');
-/** Shiki's FontStyle.Italic bit (the enum itself is type-only). */
-const ITALIC = 1;
-const codeW = Math.max(...lines.map((line) => line.length * CH)) + 28;
-const codeH = lines.length * LINE + 16 + BAR;
+// The file that makes the swap: under the replacement, its arrow pointing up into it.
 const codeTop =
   Math.max(
     placedReplacement.y + placedReplacement.h / 2,
     ...placedConsumers.map((c) => c.y + c.h / 2),
   ) + 40;
 const codeLeft = Math.max(10, tx - 70);
-const codeBox = { x: codeLeft + codeW / 2, y: codeTop + codeH / 2, w: codeW, h: codeH };
 const viewWidth = Math.max(tx + tw / 2, codeLeft + codeW) + 10;
-const viewHeight = codeTop + codeH + (note ? 30 : 12);
+const viewHeight = Math.max(
+  codeTop + codeH + (note ? 30 : 12),
+  ...placedConsumers.map((c) => c.y + c.h / 2 + 12),
+);
 
 type Pt = [number, number];
 const rounded = (pts: Pt[]) => {
@@ -128,7 +118,7 @@ const nodes = [
 ---
 
 <svg
-  class="case"
+  class:list={['case', tone]}
   viewBox={`0 0 ${viewWidth} ${viewHeight}`}
   style={`--view-width: ${viewWidth}px`}
   xmlns="http://www.w3.org/2000/svg"
@@ -154,12 +144,11 @@ const nodes = [
     ))}
   </defs>
 
-  {/* Default edges first, faded, so the live ones sit on top. */}
   {placedOriginal &&
     placedConsumers.map((c) => (
       <path
         class="edge ghost"
-        d={edge(c, placedOriginal, original ? -6 : 0, left - 40)}
+        d={edge(c, placedOriginal, -6, left - 40)}
         marker-end={`url(#${uid}-plain)`}
       />
     ))}
@@ -192,7 +181,10 @@ const nodes = [
       <g class="node" data-mark={node.mark}>
         {node.file ? (
           <>
-            <path class="shape" d={`M ${l} ${t} H ${r - EAR} L ${r} ${t + EAR} V ${b} H ${l} Z`} />
+            <path
+              class="shape page"
+              d={`M ${l} ${t} H ${r - EAR} L ${r} ${t + EAR} V ${b} H ${l} Z`}
+            />
             <path class="bar" d={`M ${l} ${b - BAR} H ${r} V ${b} H ${l} Z`} />
             <path class="ear" d={`M ${r - EAR} ${t} V ${t + EAR} H ${r}`} />
             <text class="file" x={node.x} y={b - BAR / 2}>
@@ -222,7 +214,12 @@ const nodes = [
               height={ICON}
             />
           ) : (
-            <text x={at} y={textY} textLength={seg.text.length * CH}>
+            <text
+              class:list={{ name: node.file || node.component }}
+              x={at}
+              y={textY}
+              textLength={seg.text.length * CH}
+            >
               {seg.text}
             </text>
           );
@@ -231,37 +228,7 @@ const nodes = [
     );
   })}
 
-  {/* The file that makes the swap, as a document holding its code. */}
-  {(() => {
-    const [l, r, t, b] = [
-      codeBox.x - codeBox.w / 2,
-      codeBox.x + codeBox.w / 2,
-      codeBox.y - codeBox.h / 2,
-      codeBox.y + codeBox.h / 2,
-    ];
-    return (
-      <g class="node code" data-mark={tone}>
-        <path class="shape" d={`M ${l} ${t} H ${r - EAR} L ${r} ${t + EAR} V ${b} H ${l} Z`} />
-        <path class="bar" d={`M ${l} ${b - BAR} H ${r} V ${b} H ${l} Z`} />
-        <text class="file" x={codeBox.x} y={b - BAR / 2}>
-          {control.file}
-        </text>
-        {/* Plain text: icons would land inside path strings like './orders'. */}
-        {lines.map((line, row) => (
-          <text x={l + 14} y={t + 8 + LINE / 2 + row * LINE} textLength={line.length * CH}>
-            {(tokens[row] ?? []).map((token) => (
-              <tspan
-                fill={token.color}
-                font-style={(token.fontStyle ?? 0) & ITALIC ? 'italic' : undefined}
-              >
-                {token.content}
-              </tspan>
-            ))}
-          </text>
-        ))}
-      </g>
-    );
-  })()}
+  <CodePage page={controlCode} x={codeLeft} y={codeTop} kind="control" />
   {note && (
     <text class:list={['note', tone]} x={codeLeft} y={codeTop + codeH + 18}>
       {note}
@@ -278,7 +245,7 @@ const nodes = [
     margin: 16px 0 8px 50%;
     transform: translateX(-50%);
     overflow: visible;
-    font-family: ui-monospace, monospace;
+    font-family: var(--font-jetbrains), monospace;
     font-size: 12px;
   }
   .purple {
@@ -329,6 +296,10 @@ const nodes = [
     stroke: var(--tone);
     stroke-width: 2;
   }
+  /* A page: its outline a touch heavier than a component's, its fold a touch lighter. */
+  .page {
+    stroke-width: 1.25;
+  }
   [data-mark='ghost'] .shape {
     fill: none;
     stroke-dasharray: 4 3;
@@ -336,14 +307,8 @@ const nodes = [
   [data-mark='ghost'] {
     color: #aaa;
   }
-  /* The swap's own file: white, with a coloured outline, so the code reads. */
-  .code .shape {
-    fill: #fff;
-    stroke: var(--tone);
-    stroke-width: 2;
-  }
   .node text {
-    dominant-baseline: central;
+    transform: translateY(0.36em);
     white-space: pre;
     fill: currentColor;
   }
@@ -358,9 +323,14 @@ const nodes = [
   .ear {
     fill: none;
     stroke: #999;
+    stroke-width: 0.75;
   }
   [data-mark$='-soft'] .ear {
     stroke: var(--tone);
+    stroke-width: 1;
+  }
+  .node text.name {
+    font-weight: 600;
   }
   .icon {
     fill: none;

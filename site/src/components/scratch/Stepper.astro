@@ -4,22 +4,29 @@
  * Markdown, and pass the same diagrams, in order, as `diagrams`: on wide screens they're stacked
  * on a sticky stage beside the steps, and the step crossing the middle of the viewport picks one.
  */
+import InjectDiagram from './InjectDiagram.astro';
 import TreeDiagram from './TreeDiagram.astro';
 
 interface Props {
   diagrams: Record<string, unknown>[];
+  /** What draws them: a tree, unless said otherwise. */
+  as?: typeof TreeDiagram | typeof InjectDiagram;
+  /** Space between steps, in px, for steps too short to give the scroll room on their own. */
+  gap?: number;
 }
-const { diagrams } = Astro.props;
+const { diagrams, as = TreeDiagram, gap } = Astro.props;
+// The diagrams' props are passed through as they come, unchecked, whichever draws them.
+const Diagram = as as typeof TreeDiagram;
 ---
 
-<div class="stepper" data-stepper>
+<div class="stepper" data-stepper style={gap === undefined ? undefined : `--step-gap: ${gap}px`}>
   <div class="steps">
     <slot />
   </div>
   <div class="stage" aria-hidden="true">
     {diagrams.map((diagram) => (
       <div class="stage-frame">
-        <TreeDiagram {...diagram} />
+        <Diagram {...diagram} />
       </div>
     ))}
   </div>
@@ -32,6 +39,11 @@ const { diagrams } = Astro.props;
   }
   .stepper .stage {
     display: none;
+  }
+  /* Two in a row read as two pictures, not one (the first one on the page is followed by its script). */
+  .stepper + .stepper,
+  .stepper + script + .stepper {
+    margin-top: 56px;
   }
   @media (min-width: 1000px) {
     .stepper[data-live] {
@@ -85,9 +97,10 @@ const { diagrams } = Astro.props;
     .stepper[data-live] .step[data-active] {
       border-left-color: #36c;
     }
-    /* A wide diagram fits the stage's column, rather than breaking out of it. */
-    .stepper .stage-frame .tree.wide {
-      width: 100%;
+    /* A wide diagram fits the stage's column, rather than breaking out of it; a narrow one keeps its size. */
+    .stepper .stage-frame .tree.wide,
+    .stepper .stage-frame .inject {
+      width: min(100%, var(--view-width));
       margin-left: 0;
       transform: none;
     }

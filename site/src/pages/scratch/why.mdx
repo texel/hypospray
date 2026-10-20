@@ -5,6 +5,7 @@ title: Config and mocking are a pain. We can do better.
 
 import CaseDiagram from '../../components/scratch/CaseDiagram.astro';
 import Dep from '../../components/scratch/Dep.astro';
+import InjectDiagram from '../../components/scratch/InjectDiagram.astro';
 import Step from '../../components/scratch/Step.astro';
 import Stepper from '../../components/scratch/Stepper.astro';
 import TreeDiagram from '../../components/scratch/TreeDiagram.astro';
@@ -12,14 +13,14 @@ import * as d from '../../components/scratch/why-diagrams';
 
 ## 1. Your app runs on a graph of services
 
-Most of what an app does lives in services: one to fetch orders, another to check who's signed in or to log an error.
+A lot of app functionality lives in services: one to fetch orders, another to check who's signed in or to log an error.
 Services lean on each other. Three API clients share one HTTP client, and the HTTP client and the
 logger both read config.
 
 <Stepper diagrams={d.wiring}>
 <Step diagram={d.wiring[0]}>
 
-Components sit on top, each reaching into the graph for the one service it uses.
+Here, we see components on the left, directly importing services, shown on the right.
 
 </Step>
 <Step diagram={d.wiring[1]}>
@@ -49,7 +50,7 @@ Here are three common cases:
 
 ### <Dep name="config" /> ① Configuration at runtime
 
-The API URL differs per environment, per tenant, per preview deploy. Environment variables can help here,
+The API URL differs per environment. Environment variables can help here,
 but they force all configuration through a string, are difficult to discover, and don't automatically give
 you fallbacks or defaults.
 
@@ -67,7 +68,7 @@ Simple config changes won't work here, so we need to swap out our source file us
 Even if you don't need as much flexibility while your app is running, you probably don't want
 to hit actual remote APIs in your tests.
 
-Modern test frameworks allow you to mock file imports, but it's painful and error-prone.
+Modern test frameworks allow you to [mock file imports](https://vitest.dev/guide/mocking), but it's painful and error-prone.
 
 <CaseDiagram {...d.importCases.test} />
 
@@ -83,23 +84,33 @@ This is a pretty good idea. We can even take it a step further- our services can
 as arguments instead of importing and using concrete instances.
 
 We should stop for a moment and congratulate ourselves... we just invented [Dependency Injection](https://en.wikipedia.org/wiki/Dependency_injection)!
-We also inadvertently traded our existing problems for fun new problems.
+We also traded our existing problems for fun new problems.
 
-All of those function arguments ultimately have to start somewhere, and that means they accumulate
-at the entry point of your app. In a typical frontend app, this ends up being the top of your
-component tree. Not only does it need to build each service in the correct order, but it also
-needs to pass each service down into child and grandchild components.
+<Stepper diagrams={[d.building]}>
+<Step diagram={d.building}>
+
+All of those function arguments ultimately have to come from somewhere, and that means they accumulate
+at the entry point of your app.
+
+In a typical frontend app, this ends up being the top of your
+component tree, where each service needs to be built in the correct order.
 
 
-<Stepper diagrams={d.cascadeSteps}>
-<Step diagram={d.cascadeSteps[0]}>
+</Step>
+</Stepper>
 
-This is affectionally known as "prop drilling," and it's not nearly as fun as it sounds. Not only is it
+<Stepper diagrams={d.drilling}>
+<Step diagram={d.drilling[0]}>
+
+After the services are built, they need to be passed down
+into child and grandchild components.
+
+This is affectionally known as ["prop drilling,"](https://kentcdodds.com/blog/prop-drilling) and it's not nearly as fun as it sounds. Not only is it
 bad for the environment, it means that changing components deep in your app can affect the
 arguments of components all the way up to the app root.
 
 </Step>
-<Step diagram={d.cascadeSteps[1]}>
+<Step diagram={d.drilling[1]}>
 
 Look what happens when we add error logging to `RevenueChart`. The root already builds a logger, but
 the only way down is through `App` and `Dashboard`. We need to touch three files to make a change in just one.
@@ -153,7 +164,7 @@ asked for a service yet, so the injector is empty.
 </Step>
 <Step diagram={d.lazy[1]}>
 
-`App` renders `Header`, and `UserMenu` asks for the auth client. The injector automatically
+`App` renders `Header`, and `UserMenu` needs an auth client. The injector automatically
 builds only what it needs to satisfy the dependencies.
 
 </Step>
@@ -165,37 +176,50 @@ client is already built, so it gets the same one.
 </Step>
 <Step diagram={d.lazy[3]}>
 
-`RevenueChart` asks for analytics, which needs a logger as well as the HTTP client. The logger is
-built; the HTTP client and config are shared.
+`RevenueChart` needs an analytics service, which needs a logger as well as the HTTP client.
+Hypospray builds a logger, and uses the existing HTTP client and config.
 
 </Step>
 </Stepper>
 
-## 6. Change anything, from the top
+## 6. Flexibility, and simplicity
 
-All three cases from before become a provider, in the file where the decision belongs. Everything
-that asks gets the new one, however deep. Nothing in between changes.
+Now we can revisit the [pain points from before](#2-imports-are-simple-but-not-flexible), and see how Hypospray solves them.
 
-### <Dep name="config" /> ① Configuration at runtime
+### <Dep name="config" /> ① Type safe configuration at runtime
 
-In `main.ts`, look up the tenant, then provide its config: any value, not just strings, decided at
-runtime.
+<Stepper as={InjectDiagram} diagrams={d.configSteps} gap={180}>
+<Step as={InjectDiagram} diagram={d.configSteps[0]}>
 
-<CaseDiagram {...d.injectCases.config} />
+In `config.ts`, we can declare a `Config` type and provide function that returns a reasonable default value.
+
+</Step>
+<Step as={InjectDiagram} diagram={d.configSteps[1]}>
+
+Next, in `main.ts`, we can provide the config from environment variables, and we get type safety automatically.
+
+</Step>
+<Step as={InjectDiagram} diagram={d.configSteps[2]}>
+
+{/* Draft: rewrite me. */}
+Finally, `http.ts` calls `inject(getConfig)` and gets the config that we provided in `main.ts`.
+
+</Step>
+</Stepper>
 
 ### <Dep name="http" /> ② A different implementation
 
-In `server.ts`, provide a different HTTP client and wrap it with retries. Auth, orders and analytics
-all get it. The browser build is untouched.
+In `server.ts`, we can provide a different HTTP client and wrap it with retries.
+Auth, orders and analytics all get this new version without any other build or config changes.
 
-<CaseDiagram {...d.injectCases.swap} />
+<InjectDiagram {...d.injectCases.swap} />
 
 ### <Dep name="orders" /> ③ Tests
 
-In `OrdersTable.test.tsx`, provide a fake orders API for this test only. No path strings, nothing
-hoisted, and the next test can provide something else.
+In `OrdersTable.test.tsx`, we can provide a fake orders API and keep it isolated per-test.
+Test order dependencies and other flakiness are gone, and the test is easier to read and maintain.
 
-<CaseDiagram {...d.injectCases.test} />
+<InjectDiagram {...d.injectCases.test} />
 
 <div class="questions">
 
@@ -208,5 +232,7 @@ hoisted, and the next test can provide something else.
   component examples once the framework adapters settle.
 - Six beats now (old 1 and 2 merged). Could 3 and 4 (pass it in, context) merge too?
 - Sticky graph vs. one diagram per beat: decide once the story works.
+- Beat 1's service files show `const http` with no `export`, so it may not read as something you can
+  import. Adding `export` makes every line longer and every box wider. Revisit.
 
 </div>

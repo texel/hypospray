@@ -1,0 +1,335 @@
+---
+import { type Code, CODE_PAD, LINE, highlight, INK } from './code';
+import CodePage from './CodePage.astro';
+import { deps } from './deps';
+import { CH, H, ICON, ICON_STEP, contentWidth, segment } from './text';
+
+/**
+ * One use case, through Hypospray: the file that defines something (above), the file that
+ * provides it (below), the code asking for it (right), and between them the injector, drawn as
+ * what it is: a lookup from what you ask for to what you get. Unless something's provided, what
+ * you get is what the function returns. Steps turn on `provided`, then `asked`; the space for
+ * what's off is kept, so steps line up.
+ */
+interface Props {
+  tone: 'blue';
+  /** The code that asks; `row` is the line with its `inject(…)`. */
+  consumer: Code & { row: number };
+  /**
+   * The file that defines what it asks for; `key` is how the injector files it, `fallback` what
+   * it returns, and `returns` the line that returns it, faded once something else is provided.
+   */
+  contract: Code & { key: string; fallback?: string; returns?: number };
+  /** What the injector holds under `key`, as provided by `control`. */
+  value: string;
+  /** Whether `control` has provided `value` yet. */
+  provided?: boolean;
+  /** Whether the consumer has asked for it yet. */
+  asked?: boolean;
+  control: Code;
+  /** The catch (or the lack of one), under the code. */
+  note?: string;
+}
+const {
+  tone,
+  consumer,
+  contract,
+  value,
+  provided = true,
+  asked = true,
+  control,
+  note,
+} = Astro.props as Props;
+
+const RADIUS = 8;
+const PAD = 12;
+const HEAD_H = 18;
+const ROW_H = H;
+
+const [asking, defining, providing] = await Promise.all(
+  [consumer, contract, control].map(highlight),
+);
+const name = contract.key.replace(/\{\w+\}\s*/, '');
+const ask = `inject(${name})`;
+/** With nothing provided, what you'd get: what the function returns. */
+const fallback = contract.fallback ?? `${name}()`;
+const held = provided ? value : fallback;
+
+// The table: what you ask for on the left, what you get on the right.
+const keyW = contentWidth(contract.key) + 24;
+const valW = Math.max(contentWidth(value), contentWidth(fallback)) + 24;
+const toConsumer = 56;
+// Both files sit on a spine through the value; lead with enough room that they stay in view.
+const spineFromFrame = PAD + keyW + valW / 2;
+const pageHalf = Math.max(defining.w, providing.w) / 2;
+const lead = Math.max(0, pageHalf - spineFromFrame);
+
+const top = 20;
+const frame = {
+  x: 10 + lead,
+  y: top + defining.h + 36,
+  w: PAD + keyW + valW + PAD,
+  h: 0,
+};
+const table = { x: frame.x + PAD, y: frame.y + 28 };
+const rowTop = table.y + HEAD_H;
+const rowBottom = rowTop + ROW_H;
+const key = rowTop + ROW_H / 2;
+frame.h = rowBottom + 14 - frame.y;
+const valueX = table.x + keyW;
+const spine = valueX + valW / 2;
+
+// The consumer's `inject(…)` is marked in place. What you get comes out of the entry and into
+// the consumer's page, level with the line that asks.
+const consumerX = frame.x + frame.w + toConsumer;
+const consumerY = key - INK - (CODE_PAD.top + LINE / 2 + consumer.row * LINE);
+const askLine = asking.lines[consumer.row] ?? '';
+const askAt = askLine.indexOf(ask);
+const definingX = spine - defining.w / 2;
+const providingX = spine - providing.w / 2;
+// Under the injector, and under the consumer too if they'd overlap.
+const providingY = Math.max(
+  frame.y + frame.h + 36,
+  providingX + providing.w > consumerX - 12 ? consumerY + asking.h + 24 : 0,
+);
+const viewWidth = Math.max(consumerX + asking.w, spine + pageHalf) + 10;
+const viewHeight = providingY + providing.h + (note ? 30 : 12);
+
+type Pt = [number, number];
+const rounded = (pts: Pt[]) => {
+  let d = `M ${pts[0]![0]} ${pts[0]![1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [px, py] = pts[i - 1]!;
+    const [qx, qy] = pts[i]!;
+    const [nx, ny] = pts[i + 1]!;
+    const r = Math.min(RADIUS, Math.hypot(qx - px, qy - py) / 2, Math.hypot(nx - qx, ny - qy) / 2);
+    const a = [qx - Math.sign(qx - px) * r, qy - Math.sign(qy - py) * r];
+    const b = [qx + Math.sign(nx - qx) * r, qy + Math.sign(ny - qy) * r];
+    d += ` L ${a[0]} ${a[1]} Q ${qx} ${qy} ${b[0]} ${b[1]}`;
+  }
+  const last = pts.at(-1)!;
+  return `${d} L ${last[0]} ${last[1]}`;
+};
+const uid = Math.random().toString(36).slice(2, 8);
+const marker = (t: string) => `url(#${uid}-${t})`;
+
+/** A run of text with icons, starting at x. */
+const runs = (text: string, x: number, ch = CH, step = ICON_STEP) =>
+  segment(text).map((seg) => {
+    const at = x;
+    x += 'icon' in seg ? step : seg.text.length * ch;
+    return { seg, at, w: 'icon' in seg ? step : seg.text.length * ch };
+  });
+---
+
+<svg
+  class:list={['inject', tone]}
+  viewBox={`0 0 ${viewWidth} ${viewHeight}`}
+  style={`--view-width: ${viewWidth}px`}
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <defs>
+    {Object.entries(deps).map(([dep, { icon }]) => (
+      <symbol id={`${uid}-${dep}`} viewBox="0 0 16 16" class="icon" set:html={icon} />
+    ))}
+    {['plain', tone].map((t) => (
+      <marker
+        id={`${uid}-${t}`}
+        class={`tip ${t}`}
+        viewBox="0 0 8 8"
+        refX="4"
+        refY="4"
+        markerWidth="8"
+        markerHeight="8"
+        markerUnits="userSpaceOnUse"
+        orient="auto"
+      >
+        <path d="M0,0 L8,4 L0,8 z" />
+      </marker>
+    ))}
+  </defs>
+
+  {/* The injector, and in it the table it looks things up in. */}
+  <rect class="injector" x={frame.x} y={frame.y} width={frame.w} height={frame.h} rx={4} />
+  <text class="injector-label" x={frame.x + 10} y={frame.y + 16}>
+    injector
+  </text>
+  <g class="table">
+    <rect class="head" x={table.x} y={table.y} width={keyW + valW} height={HEAD_H} />
+    <rect class="entry" x={valueX} y={rowTop} width={valW} height={ROW_H} />
+    <rect class="frame" x={table.x} y={table.y} width={keyW + valW} height={HEAD_H + ROW_H} />
+    <path class="rule" d={`M ${valueX} ${table.y} V ${rowBottom}`} />
+    <path class="rule" d={`M ${table.x} ${rowTop} H ${table.x + keyW + valW}`} />
+    <text class="heading" x={table.x + 10} y={table.y + HEAD_H / 2}>
+      you ask for
+    </text>
+    <text class="heading" x={valueX + 10} y={table.y + HEAD_H / 2}>
+      you get
+    </text>
+  </g>
+
+  {/* What the function returns fills the entry; once something's provided, it's overridden. */}
+  <path
+    class:list={['edge', provided ? 'ghost' : tone]}
+    d={rounded([
+      [spine, top + defining.h],
+      [spine, rowTop - 4],
+    ])}
+    marker-end={marker(provided ? 'plain' : tone)}
+  />
+  {provided && (
+    <path
+      class:list={['edge', tone]}
+      d={rounded([
+        [spine, providingY],
+        [spine, rowBottom + 4],
+      ])}
+      marker-end={marker(tone)}
+    />
+  )}
+
+  {asked && (
+    <CodePage
+      page={asking}
+      x={consumerX}
+      y={consumerY}
+      kind="plain"
+      marks={askAt < 0 ? [] : [{ row: consumer.row, from: askAt, to: askAt + ask.length }]}
+    />
+  )}
+  <CodePage
+    page={defining}
+    x={definingX}
+    y={top}
+    kind="plain"
+    dim={provided && contract.returns !== undefined ? [contract.returns] : []}
+  />
+  {provided && <CodePage page={providing} x={providingX} y={providingY} kind="control" />}
+
+  {/* The entry: the name on the left, what's provided for it on the right. */}
+  {[
+    { text: contract.key, x: table.x + 10, cls: 'name' },
+    { text: held, x: valueX + 10, cls: 'value' },
+  ].map(({ text, x, cls }) => (
+    <g class:list={['cell', cls]}>
+      {runs(text, x).map(({ seg, at, w }) =>
+        'icon' in seg ? (
+          <use
+            class="icon"
+            href={`#${uid}-${seg.icon}`}
+            x={at}
+            y={key - ICON / 2}
+            width={ICON}
+            height={ICON}
+          />
+        ) : (
+          <text x={at} y={key} textLength={w}>
+            {seg.text}
+          </text>
+        ),
+      )}
+    </g>
+  ))}
+  {/* What you get, out of the entry and into the consumer, level with the `inject(…)` it answers. */}
+  {asked && (
+    <path
+      class:list={['edge', tone]}
+      d={rounded([
+        [valueX + valW, key],
+        [consumerX - 4, key],
+      ])}
+      marker-end={marker(tone)}
+    />
+  )}
+  {provided && note && (
+    <text class="note" x={providingX} y={providingY + providing.h + 18}>
+      {note}
+    </text>
+  )}
+</svg>
+
+<style>
+  .inject {
+    display: block;
+    width: min(var(--view-width), 100vw - 32px);
+    max-width: none;
+    height: auto;
+    margin: 16px 0 8px 50%;
+    transform: translateX(-50%);
+    overflow: visible;
+    font-family: var(--font-jetbrains), monospace;
+    font-size: 12px;
+  }
+  .blue {
+    --tone: #36c;
+    --soft: #e2eaff;
+  }
+  .edge {
+    fill: none;
+    stroke: var(--tone);
+    stroke-width: 3;
+  }
+  .edge.ghost {
+    stroke: #999;
+    stroke-width: 1.5;
+    opacity: 0.5;
+    stroke-dasharray: 5 3;
+  }
+  .tip.plain path {
+    fill: #999;
+  }
+  .tip:not(.plain) path {
+    fill: var(--tone);
+  }
+  .injector {
+    fill: #f6f8ff;
+    stroke: var(--tone);
+    stroke-dasharray: 6 4;
+  }
+  .injector-label {
+    fill: var(--tone);
+    font-weight: 600;
+    transform: translateY(0.36em);
+  }
+  .table .frame {
+    fill: none;
+    stroke: #999;
+  }
+  .table .head {
+    fill: #fff;
+  }
+  .table .entry {
+    fill: var(--soft);
+  }
+  .table .rule {
+    stroke: #999;
+  }
+  .heading {
+    font-size: 10px;
+    fill: #888;
+    transform: translateY(0.36em);
+  }
+  .cell {
+    color: #222;
+  }
+  .cell text {
+    transform: translateY(0.36em);
+    white-space: pre;
+    fill: currentColor;
+  }
+  .cell.name text {
+    font-weight: 600;
+  }
+  .icon {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .note {
+    font-size: 11px;
+    font-style: italic;
+    fill: var(--tone);
+  }
+</style>
