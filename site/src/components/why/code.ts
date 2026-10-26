@@ -1,5 +1,6 @@
 import { codeToTokens } from 'shiki';
 
+import { lcars } from '../../lib/lcars-theme.mjs';
 import { CH } from './text';
 
 /**
@@ -22,7 +23,7 @@ export type Page = Awaited<ReturnType<typeof highlight>>;
 /** A file's code, highlighted by its extension, one row of coloured runs per line. */
 export const highlight = async ({ file, code }: Code) => {
   const lang = file.startsWith('.env') ? 'dotenv' : file.endsWith('.tsx') ? 'tsx' : 'ts';
-  const { tokens } = await codeToTokens(code, { lang, theme: 'github-light' });
+  const { tokens } = await codeToTokens(code, { lang, theme: lcars });
   const lines = code.split('\n');
   const w = Math.max(...lines.map((line) => line.length * CH)) + CODE_PAD.left + CODE_PAD.right;
   const h = lines.length * LINE + CODE_PAD.top + CODE_PAD.bottom + BAR;

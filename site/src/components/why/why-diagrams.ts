@@ -1,7 +1,7 @@
 import { ts } from '../../lib/template-helpers';
 
 /**
- * Everything the Why scratch page draws, kept out of its prose (`pages/scratch/why.mdx`). Each
+ * Everything the Why page draws, kept out of its prose (`content/docs/docs/why.mdx`). Each
  * export is a ready set of props for `TreeDiagram` or `CaseDiagram`: spread it in.
  */
 const leaves = ['UserMenu', 'OrdersTable', 'RevenueChart'];

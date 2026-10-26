@@ -58,26 +58,31 @@ const first = beats[0]?.state ?? 'imports';
     text-transform: uppercase;
     color: var(--hue);
   }
+
   .beat p {
     margin: 0 0 12px;
     max-width: 52ch;
     font-size: 18px;
     line-height: 1.5;
   }
+
   .beat :global(code) {
     font-family: var(--font-code);
     font-size: 0.85em;
     color: var(--docs);
   }
+
   .art,
   .stage-art {
     padding: 20px;
     background: var(--panel);
   }
+
   .art {
     max-width: 440px;
     margin: 20px 0 48px;
   }
+
   .stage {
     display: none;
   }
@@ -86,27 +91,32 @@ const first = beats[0]?.state ?? 'imports';
    * Side by side once the script is running and there's room. Beats are spaced so each gets a
    * comfortable stretch of scrolling with its picture, but they're still ordinary paragraphs.
    */
-  @media (min-width: 1050px) {
+  @media (width >= 1050px) {
     .story[data-live] {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
       gap: 64px;
     }
+
     .story[data-live] .art {
       display: none;
     }
+
     .story[data-live] .beat {
       padding: 4px 0 4px 20px;
       border-left: 4px solid var(--rule);
       margin-bottom: 14vh;
       transition: border-color var(--motion);
     }
+
     .story[data-live] .beat:last-child {
       margin-bottom: 0;
     }
+
     .story[data-live] .beat[data-active] {
       border-left-color: var(--hue);
     }
+
     .story[data-live] .stage {
       display: block;
       position: sticky;
@@ -114,6 +124,7 @@ const first = beats[0]?.state ?? 'imports';
       align-self: start;
     }
   }
+
   @media (prefers-reduced-motion: reduce) {
     .beat {
       transition: none;

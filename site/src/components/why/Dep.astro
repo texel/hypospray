@@ -11,12 +11,14 @@ const { name } = Astro.props;
 <svg class="dep" viewBox="0 0 16 16" aria-hidden="true" set:html={deps[name].icon} />
 
 <style>
+  /* Sized to the text around it, whether that's a legend or a heading. */
   .dep {
-    width: 15px;
-    height: 15px;
-    vertical-align: -2px;
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    vertical-align: -0.1em;
     fill: none;
-    stroke: currentColor;
+    stroke: currentcolor;
     stroke-width: 1.5;
     stroke-linecap: round;
     stroke-linejoin: round;

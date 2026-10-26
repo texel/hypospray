@@ -1,9 +1,10 @@
 ---
+import './diagram.css';
 import { type Dep, deps } from './deps';
 import { CH, H, ICON, ICON_STEP, contentWidth, segment } from './text';
 
 /**
- * Lo-fi diagram for the Why scratch page: a component tree on top, the services the leaves use
+ * Lo-fi diagram for the Why page: a component tree on top, the services the leaves use
  * below. Each beat passes marks, edge colours, labels and notes to tell its part of the story.
  *
  * Colours carry a flow: a solid mark is where it starts, a soft mark is everything it reaches.
@@ -1219,110 +1220,130 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
     display: block;
     width: 100%;
     max-width: 680px;
-  }
-  /* Wider than the text column: let it spill out evenly on both sides when there's room. */
-  .tree.wide {
-    width: min(var(--view-width), 100vw - 32px);
-    max-width: none;
-    margin-left: 50%;
-    transform: translateX(-50%);
-  }
-  .tree {
     height: auto;
     overflow: visible;
     font-family: var(--font-jetbrains), monospace;
     font-size: 12px;
   }
+
+  /* Wider than the text column: take as much of the page's wide column as it needs. */
+  .tree.wide {
+    width: min(var(--view-width), 100%);
+    max-width: none;
+  }
+
   .divider {
-    stroke: #ccc;
+    stroke: var(--d-faint);
     stroke-dasharray: 2 4;
   }
+
   .zone {
-    fill: #999;
+    fill: var(--d-line);
     font-size: 10px;
   }
+
   /* Services first: the graph on its own band, at full weight; components as faint outlines. */
   .band {
-    fill: #f4f4f1;
+    fill: var(--d-band);
   }
+
   .zone.strong {
-    fill: #555;
+    fill: var(--d-muted);
     font-weight: 600;
   }
+
   .focus-services .node.service:not([data-mark]) .shape {
-    fill: #fff;
+    fill: var(--d-paper);
   }
+
   .focus-services:not(.outline) .edge.needs:not(.purple, .orange, .blue, .red) {
-    stroke: #555;
+    stroke: var(--d-muted);
     stroke-width: 2;
   }
+
   /* The tree as faint outlines; not in an outline, where the band already sets the graph apart. */
   .focus-services:not(.outline) .node:not(.service, [data-mark]) .shape {
     fill: none;
-    stroke: #ccc;
+    stroke: var(--d-faint);
   }
+
   .focus-services:not(.outline) .node:not(.service, [data-mark]) {
-    color: #aaa;
+    color: var(--d-dim);
   }
+
   .focus-services:not(.outline) .edge.renders {
-    stroke: #ddd;
+    stroke: var(--d-faint);
     stroke-width: 1;
   }
+
   .edge {
     fill: none;
-    stroke: #999;
+    stroke: var(--d-line);
     stroke-width: 1.5;
   }
+
   .edge.uses,
   .edge.teleport {
     stroke-dasharray: 5 3;
   }
+
   .file {
-    fill: currentColor;
+    fill: currentcolor;
     opacity: 0.75;
     font-size: 10px;
     text-anchor: middle;
     transform: translateY(0.36em);
   }
+
   /* Darkens whatever the node's fill is, so it works with every mark. */
   .bar {
-    fill: rgb(0 0 0 / 0.1);
+    fill: var(--d-shade);
   }
+
   .ear {
     fill: none;
     stroke: inherit;
   }
+
   /* A page: its outline a touch heavier than a component's, its fold a touch lighter. */
   .page {
     stroke-width: 1.25;
   }
+
   .node .ear {
-    stroke: #999;
+    stroke: var(--d-line);
     stroke-width: 0.75;
   }
+
   [data-mark] .ear {
     stroke: var(--tone);
   }
+
   .frame {
-    fill: #fffaf3;
-    stroke: #d70;
+    fill: var(--d-orange-wash);
+    stroke: var(--d-orange);
     stroke-dasharray: 6 4;
   }
+
   .frame-label {
-    fill: #d70;
+    fill: var(--d-orange);
     font-weight: 600;
   }
+
   .frame.injector {
-    fill: #f6f8ff;
-    stroke: #36c;
+    fill: var(--d-blue-wash);
+    stroke: var(--d-blue);
   }
+
   .frame-label.injector {
-    fill: #36c;
+    fill: var(--d-blue);
   }
+
   .root-title {
-    fill: #777;
+    fill: var(--d-muted);
     font-weight: 600;
   }
+
   /*
    * Asking the injector is a plain call, not a lookup: solid, unlike context's dashed reach. So is
    * an import written out in the file that makes it.
@@ -1330,72 +1351,81 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
   .edge.uses.solid {
     stroke-dasharray: none;
   }
+
   .edge.red,
   .edge.purple,
   .edge.orange,
   .edge.blue,
   .edge.green {
     stroke-width: 3;
+    stroke: var(--tone);
   }
+
   .edge.strand {
     stroke-width: 1.5;
   }
+
   .edge.strand.green {
     stroke-width: 2.5;
   }
+
   .tip.plain path {
-    fill: #999;
+    fill: var(--d-line);
   }
+
   .red {
-    --tone: #d33;
-    --soft: #fde4e4;
+    --tone: var(--d-red);
+    --soft: var(--d-red-soft);
   }
+
   .purple {
-    --tone: #84c;
-    --soft: #f2e6fa;
+    --tone: var(--d-purple);
+    --soft: var(--d-purple-soft);
   }
+
   .orange {
-    --tone: #d70;
-    --soft: #fff0dc;
+    --tone: var(--d-orange);
+    --soft: var(--d-orange-soft);
   }
+
   .blue {
-    --tone: #36c;
-    --soft: #e2eaff;
+    --tone: var(--d-blue);
+    --soft: var(--d-blue-soft);
   }
+
   /* What just changed: a new dependency, along its whole way down. */
   .green {
-    --tone: #1a9b4b;
-    --soft: #ddf5e5;
+    --tone: var(--d-green);
+    --soft: var(--d-green-soft);
   }
-  .edge.red,
-  .edge.purple,
-  .edge.orange,
-  .edge.blue,
-  .edge.green {
-    stroke: var(--tone);
-  }
+
   /* Icons are <use>s of a symbol stroked in currentColor, so colour reaches them; stroke doesn't. */
   .node .icon.fresh {
-    color: #1a9b4b;
+    color: var(--d-green);
   }
+
   .tip:not(.plain) path {
     fill: var(--tone);
   }
-  /* The white gap between a drill's collar and its cone, over the edge running under it. */
+
+  /* The gap between a drill's collar and its cone, over the edge running under it. */
   .tip path.gap {
-    fill: #fff;
+    fill: var(--d-bg);
   }
-  /* A drill bit's flutes: white grooves cut across it, whatever its colour. */
+
+  /* A drill bit's flutes: grooves cut across it, whatever its colour. */
   .tip path.flute {
     fill: none;
-    stroke: #fff;
+    stroke: var(--d-bg);
     stroke-width: 1;
     stroke-linecap: round;
   }
+
   .pill rect {
-    fill: #fff;
-    stroke: #bbb;
+    fill: var(--d-paper);
+    stroke: var(--d-faint);
   }
+
   .pill.red rect,
   .pill.purple rect,
   .pill.orange rect,
@@ -1404,9 +1434,11 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
     fill: var(--soft);
     stroke: var(--tone);
   }
+
   .pill {
-    color: #666;
+    color: var(--d-muted);
   }
+
   .pill.red,
   .pill.purple,
   .pill.orange,
@@ -1414,33 +1446,40 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
   .pill.green {
     color: var(--tone);
   }
+
   .badge circle {
-    fill: #d70;
+    fill: var(--d-orange);
   }
+
   .badge text {
-    fill: #fff;
+    fill: var(--d-on-tone);
     font-size: 9px;
     font-weight: 700;
     text-anchor: middle;
     transform: translateY(0.36em);
   }
+
   .call-label {
-    fill: currentColor;
+    fill: currentcolor;
     font-size: 10px;
     transform: translateY(0.36em);
   }
+
   .pill .edge-label {
-    fill: currentColor;
+    fill: currentcolor;
   }
+
   .label-icon {
-    stroke: currentColor;
+    stroke: currentcolor;
   }
+
   .edge-label {
     white-space: pre;
-    fill: #777;
+    fill: var(--d-muted);
     font-size: 11px;
     transform: translateY(0.36em);
   }
+
   .edge-label.red,
   .edge-label.purple,
   .edge-label.orange,
@@ -1448,53 +1487,65 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
     fill: var(--tone);
     font-weight: 600;
   }
+
   .node .shape {
-    fill: #f2f2f2;
-    stroke: #999;
+    fill: var(--d-fill);
+    stroke: var(--d-line);
   }
+
   .node {
-    color: #222;
+    color: var(--d-ink);
   }
+
   /* Imports inline: quiet imports, a hairline under them, a bold name. */
   .node text.quiet {
     font-size: 10px;
     opacity: 0.65;
   }
+
   .node text.name {
     font-weight: 600;
   }
+
   .node .rule {
-    stroke: currentColor;
+    stroke: currentcolor;
     stroke-opacity: 0.2;
   }
+
   .node text {
     transform: translateY(0.36em);
     white-space: pre;
-    fill: currentColor;
+    fill: currentcolor;
   }
+
   .icon {
     fill: none;
-    stroke: currentColor;
+    stroke: currentcolor;
     stroke-width: 1.5;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
+
   [data-mark^='red'] {
-    --tone: #d33;
-    --soft: #fde4e4;
+    --tone: var(--d-red);
+    --soft: var(--d-red-soft);
   }
+
   [data-mark^='purple'] {
-    --tone: #84c;
-    --soft: #f2e6fa;
+    --tone: var(--d-purple);
+    --soft: var(--d-purple-soft);
   }
+
   [data-mark^='orange'] {
-    --tone: #d70;
-    --soft: #fff0dc;
+    --tone: var(--d-orange);
+    --soft: var(--d-orange-soft);
   }
+
   [data-mark^='blue'] {
-    --tone: #36c;
-    --soft: #e2eaff;
+    --tone: var(--d-blue);
+    --soft: var(--d-blue-soft);
   }
+
   /* Solid: where the flow starts. Soft: what it reaches. */
   [data-mark='red'] .shape,
   [data-mark='purple'] .shape,
@@ -1503,53 +1554,65 @@ const left = Math.min(0, ...boxes.map((box) => box.x - labelWidth(box.text) / 2 
     fill: var(--tone);
     stroke: var(--tone);
   }
+
   [data-mark='red'],
   [data-mark='purple'],
   [data-mark='orange'],
   [data-mark='blue'] {
-    color: #fff;
+    color: var(--d-on-tone);
   }
+
   [data-mark$='-soft'] .shape {
     fill: var(--soft);
     stroke: var(--tone);
     stroke-width: 2;
   }
+
   [data-mark$='-soft'] .ear {
     stroke-width: 1;
   }
+
   [data-mark='ghost'] .shape {
     fill: none;
     stroke-dasharray: 4 3;
   }
+
   [data-mark='ghost'] {
-    color: #aaa;
+    color: var(--d-dim);
   }
+
   .edge.ghost,
   .pill.ghost {
     opacity: 0.3;
   }
+
   .note {
-    fill: #555;
+    fill: var(--d-muted);
     font-size: 11px;
     font-style: italic;
     transform: translateY(0.36em);
   }
+
   /* A gap where something should be: dashed and struck through, in the error colour. */
   rect.missing {
-    fill: #fff;
-    stroke: #d33;
+    fill: var(--d-paper);
+    stroke: var(--d-red);
     stroke-dasharray: 3 2;
   }
+
   line.missing {
-    stroke: #d33;
+    stroke: var(--d-red);
     stroke-width: 1.2;
   }
+
   .node text.missing {
-    fill: #d33;
+    fill: var(--d-red);
   }
+
   .node .icon.missing {
-    color: #d33;
+    color: var(--d-red);
   }
+
   .note.red,
   .note.purple,
   .note.orange,

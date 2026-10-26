@@ -4,8 +4,10 @@ import Title from './Title.astro';
 interface Props {
   homeHref: string;
   static?: boolean;
+  /** Nav hover: the button grows toward its segment, or the segment shrinks up toward the button. */
+  navHover?: 'grow' | 'shrink';
 }
-const { homeHref, static: isStatic = false } = Astro.props;
+const { homeHref, static: isStatic = false, navHover = 'shrink' } = Astro.props;
 ---
 
 <header
@@ -13,6 +15,7 @@ const { homeHref, static: isStatic = false } = Astro.props;
   data-lcars-header
   data-static={isStatic ? '' : undefined}
   data-compact={isStatic ? '' : undefined}
+  data-nav-hover={navHover}
 >
   <div class="desk">
     <div class="corner corner-o" aria-hidden="true"></div>
@@ -41,17 +44,37 @@ const { homeHref, static: isStatic = false } = Astro.props;
   </div>
 </header>
 
-<style is:global>
+<style>
   .lcars-header {
     --hdr-inset: 12px;
-    --hdr-post: 112px;
-    --hdr-stub: 32px;
+    --hdr-post: var(--rail-w);
+    --hdr-stub: calc(var(--rail-gap) - 14px);
+    --rail-break: 5px; /* black break between the rail's bars, buttons and segments */
+
+    /* Hover targets for the nav's --grow and --shrink factors (see NavButton), per navHover mode. */
+    --nav-hover-grow: 0;
+    --nav-hover-shrink: 0.5;
+    --hdr-endcap-nudge: 0.15; /* × butter height: how far the butter end stops short of the cap */
     --cap: calc(var(--hdr-bar) + var(--hdr-gap) + var(--hdr-butter));
+
+    /*
+     * A 6px --bg halo around the butter bar's underside and the post's right edge (concentric with
+     * the fillet), plus the whole column left of it, so scrolled content never touches the frame.
+     */
+    --halo: 6px;
+    --halo-top: calc(var(--hdr-pad) + var(--hdr-rise) + var(--cap));
+    --halo-left: calc(var(--hdr-inset) + var(--hdr-post) + var(--halo));
+    --halo-r: max(0px, var(--hdr-inner-b) - var(--halo));
+
     position: fixed;
-    inset: 0 0 auto 0;
+    inset: 0 0 auto;
     z-index: 50;
     height: calc(var(--hdr-pad) + var(--hdr-rise) + var(--cap) + var(--hdr-drop) + 6px);
-    background: var(--bg);
+
+    /* Opaque only down to the butter bar; below it, scrolled content shows beside the butter post. */
+    background: linear-gradient(var(--bg), var(--bg)) top / 100%
+      calc(var(--hdr-pad) + var(--hdr-rise) + var(--cap)) no-repeat;
+    pointer-events: none;
     transition:
       --hdr-pad var(--motion),
       --hdr-rise var(--motion),
@@ -68,128 +91,182 @@ const { homeHref, static: isStatic = false } = Astro.props;
       --ph-drop var(--motion),
       --ph-outer var(--motion),
       --ph-inner var(--motion);
-  }
-  /*
-   * Compact label pad: 16px Antonio on a 21.5px line puts the caps 5.1px below the line top
-   * and 2.6px above its bottom, so a 2.5px bottom pad in the 24px bar leaves ~5px above and
-   * below the caps (visual spec, "Labels").
-   */
-  .lcars-header[data-compact] {
-    --hdr-pad: 8px;
-    --hdr-rise: 12px;
-    --hdr-bar: 24px;
-    --hdr-gap: 4px;
-    --hdr-butter: 7px;
-    --hdr-drop: 25px;
-    --hdr-outer-o: 27px;
-    --hdr-inner-o: 12px;
-    --hdr-outer-b: 27px;
-    --hdr-inner-b: 14px;
-    --hdr-label-pad: 2.5px;
-    --ph-bar: 20px;
-    --ph-drop: 8px;
-    --ph-outer: 20px;
-    --ph-inner: 8px;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .lcars-header {
+
+    &[data-nav-hover='grow'] {
+      --nav-hover-grow: 0.3;
+      --nav-hover-shrink: 0;
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: var(--halo-top) 0 0 0;
+      background:
+        radial-gradient(
+            circle at 100% 100%,
+            transparent calc(var(--halo-r) - 0.5px),
+            var(--bg) var(--halo-r)
+          )
+          var(--halo-left) var(--halo) / var(--halo-r) var(--halo-r) no-repeat,
+        linear-gradient(var(--bg), var(--bg)) 0 0 / 100% var(--halo) no-repeat,
+        linear-gradient(var(--bg), var(--bg)) 0 0 / var(--halo-left) 100% no-repeat;
+    }
+
+    /*
+     * Compact label pad: 16px Antonio on a 21.5px line puts the caps 5.1px below the line top
+     * and 2.6px above its bottom, so a 2.5px bottom pad in the 24px bar leaves ~5px above and
+     * below the caps (visual spec, "Labels").
+     */
+    &[data-compact] {
+      --hdr-pad: 8px;
+      --hdr-rise: 12px;
+      --hdr-bar: 24px;
+      --hdr-gap: 4px;
+      --hdr-butter: 7px;
+      --hdr-drop: 25px;
+      --hdr-outer-o: 27px;
+      --hdr-inner-o: 12px;
+      --hdr-outer-b: 27px;
+      --hdr-inner-b: 14px;
+      --hdr-label-pad: 2.5px;
+      --ph-bar: 20px;
+      --ph-drop: 8px;
+      --ph-outer: 20px;
+      --ph-inner: 8px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
       transition: none;
     }
-  }
 
-  /* Orange corner: post rises above the bar; outer curve bottom-left, fillet where post meets bar top. */
-  .lcars-header .corner {
-    position: absolute;
-    left: var(--hdr-inset);
-    width: calc(var(--hdr-post) + var(--hdr-stub));
-  }
-  .lcars-header .corner-o {
-    top: var(--hdr-pad);
-    height: calc(var(--hdr-rise) + var(--hdr-bar));
-    background: var(--frame);
-    border-end-start-radius: var(--hdr-outer-o);
-  }
-  .lcars-header .corner-o::before {
-    content: '';
-    position: absolute;
-    left: var(--hdr-post);
-    top: 0;
-    width: var(--hdr-stub);
-    height: var(--hdr-rise);
-    background: var(--bg);
-    border-end-start-radius: var(--hdr-inner-o);
-  }
-  /* Butter corner: bar on top, post drops below; outer curve top-left, fillet under the bar. */
-  .lcars-header .corner-b {
-    top: calc(var(--hdr-pad) + var(--hdr-rise) + var(--hdr-bar) + var(--hdr-gap));
-    height: calc(var(--hdr-butter) + var(--hdr-drop));
-    background: var(--butter);
-    border-start-start-radius: var(--hdr-outer-b);
-  }
-  .lcars-header .corner-b::before {
-    content: '';
-    position: absolute;
-    left: var(--hdr-post);
-    top: var(--hdr-butter);
-    width: var(--hdr-stub);
-    height: var(--hdr-drop);
-    background: var(--bg);
-    border-start-start-radius: var(--hdr-inner-b);
-  }
+    :is(.corner, .lockup, .phone) {
+      pointer-events: auto;
+    }
 
-  .lcars-header .lockup {
-    position: absolute;
-    left: calc(var(--hdr-inset) + var(--hdr-post) + var(--hdr-stub) + 14px); /* x 170 */
-    right: var(--hdr-inset);
-    top: calc(var(--hdr-pad) + var(--hdr-rise));
-    display: flex;
-    gap: 10px;
-  }
-  .lcars-header .rail {
-    flex: 1;
-    display: flex;
-    gap: 6px;
-    min-width: 0;
-  }
-  .lcars-header .rail-bar,
-  .lcars-header .rail-end {
-    display: flex;
-    flex-direction: column;
-  }
-  .lcars-header .rail-bar {
-    flex: 1;
-    min-width: 0;
-  }
-  .lcars-header .rail-end {
-    width: 40px;
-    flex: none;
-  }
-  .lcars-header .rail-bar > .top,
-  .lcars-header .rail-end > .top {
-    height: var(--hdr-bar);
-    background: var(--frame);
-  }
-  .lcars-header .rail-end > .top {
-    border-start-end-radius: calc(var(--hdr-bar) / 2);
-    border-end-end-radius: calc(var(--hdr-bar) / 2);
-  }
-  .lcars-header .rail-bar > .seg,
-  .lcars-header .rail-end > .seg {
-    height: var(--hdr-butter);
-    margin-top: var(--hdr-gap);
-    background: var(--butter);
-  }
-  .lcars-header .rail-bar > .seg {
-    margin-inline-end: -6px;
-  }
-  .lcars-header .rail-end > .seg {
-    border-start-end-radius: calc(var(--hdr-butter) / 2);
-    border-end-end-radius: calc(var(--hdr-butter) / 2);
-  }
+    /* Orange corner: post rises above the bar; outer curve bottom-left, fillet where post meets bar top. */
+    .corner {
+      position: absolute;
+      left: var(--hdr-inset);
+      width: calc(var(--hdr-post) + var(--hdr-stub));
+    }
 
-  /* 600–1050px: always compact, narrower buttons. */
-  @media (min-width: 600px) and (max-width: 1049.98px) {
-    .lcars-header {
+    .corner-o {
+      top: var(--hdr-pad);
+      height: calc(var(--hdr-rise) + var(--hdr-bar));
+      background: var(--frame);
+      border-end-start-radius: var(--hdr-outer-o);
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: var(--hdr-post);
+        top: 0;
+        width: var(--hdr-stub);
+        height: var(--hdr-rise);
+        background: var(--bg);
+        border-end-start-radius: var(--hdr-inner-o);
+      }
+    }
+
+    /*
+     * Butter corner: bar on top, post drops below; outer curve top-left, fillet under the bar.
+     * Painted as bar + post with the area under the bar left transparent (content scrolls through
+     * it), so the fillet is filled in butter rather than carved out in --bg.
+     */
+    .corner-b {
+      top: calc(var(--hdr-pad) + var(--hdr-rise) + var(--hdr-bar) + var(--hdr-gap));
+      height: calc(var(--hdr-butter) + var(--hdr-drop));
+      background:
+        linear-gradient(var(--butter), var(--butter)) top left / 100% var(--hdr-butter) no-repeat,
+        linear-gradient(var(--butter), var(--butter)) top left / var(--hdr-post) 100% no-repeat;
+      border-start-start-radius: var(--hdr-outer-b);
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: var(--hdr-post);
+        top: var(--hdr-butter);
+        width: var(--hdr-inner-b);
+        height: var(--hdr-inner-b);
+        background: radial-gradient(
+          circle at 100% 100%,
+          transparent calc(var(--hdr-inner-b) - 0.5px),
+          var(--butter) var(--hdr-inner-b)
+        );
+      }
+    }
+
+    .lockup {
+      position: absolute;
+      left: calc(
+        var(--hdr-inset) + var(--hdr-post) + var(--hdr-stub) + 14px
+      ); /* the content column's left edge */
+
+      right: var(--hdr-inset);
+      top: calc(var(--hdr-pad) + var(--hdr-rise));
+      display: flex;
+      gap: 10px;
+    }
+
+    .rail {
+      flex: 1;
+      display: flex;
+      gap: var(--rail-break);
+      min-width: 0;
+    }
+
+    :is(.rail-bar, .rail-end) {
+      display: flex;
+      flex-direction: column;
+
+      > .top {
+        height: var(--hdr-bar);
+        background: var(--frame);
+      }
+
+      > .seg {
+        height: var(--hdr-butter);
+        margin-top: var(--hdr-gap);
+        background: var(--butter);
+      }
+    }
+
+    /*
+     * The filler bar owns the break before the first button (its margin cancels the rail gap),
+     * so when it shrinks to nothing the break goes with it.
+     */
+    .rail-bar {
+      flex: 1;
+      min-width: 0;
+      margin-inline-end: calc(-1 * var(--rail-break));
+
+      > :is(.top, .seg) {
+        margin-inline-end: min(var(--rail-break), 100%);
+      }
+    }
+
+    .rail-end {
+      width: 40px;
+      flex: none;
+
+      > .top {
+        border-start-end-radius: calc(var(--hdr-bar) / 2);
+        border-end-end-radius: calc(var(--hdr-bar) / 2);
+      }
+
+      /*
+       * Both ends are semicircles, but the butter's small one reads as reaching further right than
+       * the cap's big one, so it stops short by a fraction (--hdr-endcap-nudge) of its height.
+       */
+      > .seg {
+        margin-inline-end: calc(var(--hdr-butter) * var(--hdr-endcap-nudge));
+        border-start-end-radius: calc(var(--hdr-butter) / 2);
+        border-end-end-radius: calc(var(--hdr-butter) / 2);
+      }
+    }
+
+    /* 600–1050px: always compact, narrower buttons. */
+    @media (600px <= width < 1050px) {
       --nav-w: 90px;
       --hdr-pad: 8px;
       --hdr-rise: 12px;
@@ -203,53 +280,68 @@ const { homeHref, static: isStatic = false } = Astro.props;
       --hdr-inner-b: 14px;
       --hdr-label-pad: 2.5px;
     }
-  }
 
-  /* Phone header (< 600px). */
-  .lcars-header .phone {
-    display: none;
-  }
-  @media (max-width: 599.98px) {
-    .lcars-header {
-      /* 70px full (8 + 44 + 12 + 6); the compact band is 46px per the spec, not 8 + 28 + 6. */
-      height: max(46px, calc(8px + var(--ph-bar) + var(--ph-drop) + 6px));
-    }
-    .lcars-header .desk {
+    /* Phone header (< 600px). */
+    .phone {
       display: none;
     }
-    .lcars-header .phone {
-      --cap: var(--ph-bar);
-      position: absolute;
-      inset: 8px 8px auto 8px;
-      display: flex;
-      gap: 6px;
-    }
-    .lcars-header .ph-corner {
-      position: relative;
-      flex: none;
-      width: 60px;
-      height: calc(var(--ph-bar) + var(--ph-drop));
-      background: var(--frame);
-      border-start-start-radius: var(--ph-outer);
-    }
-    .lcars-header .ph-corner::before {
-      content: '';
-      position: absolute;
-      left: 14px;
-      top: var(--ph-bar);
-      width: 46px;
-      height: var(--ph-drop);
-      background: var(--bg);
-      border-start-start-radius: var(--ph-inner);
-    }
-    .lcars-header .ph-bar {
-      flex: 1;
-      display: flex;
-      justify-content: flex-end;
-      height: var(--ph-bar);
-      background: var(--frame);
-      border-start-end-radius: calc(var(--ph-bar) / 2);
-      border-end-end-radius: calc(var(--ph-bar) / 2);
+
+    @media (width < 600px) {
+      /* 70px full (8 + 44 + 12 + 6); the compact band is 46px per the spec, not 8 + 28 + 6. */
+      height: max(46px, calc(8px + var(--ph-bar) + var(--ph-drop) + 6px));
+      background-size: 100% calc(8px + var(--ph-bar));
+
+      --halo-top: calc(8px + var(--ph-bar));
+      --halo-left: calc(8px + 14px + var(--halo));
+      --halo-r: max(0px, var(--ph-inner) - var(--halo));
+
+      .desk {
+        display: none;
+      }
+
+      .phone {
+        --cap: var(--ph-bar);
+
+        position: absolute;
+        inset: 8px 8px auto;
+        display: flex;
+        gap: 6px;
+      }
+
+      .ph-corner {
+        position: relative;
+        flex: none;
+        width: 60px;
+        height: calc(var(--ph-bar) + var(--ph-drop));
+        background:
+          linear-gradient(var(--frame), var(--frame)) top left / 100% var(--ph-bar) no-repeat,
+          linear-gradient(var(--frame), var(--frame)) top left / 14px 100% no-repeat;
+        border-start-start-radius: var(--ph-outer);
+
+        &::before {
+          content: '';
+          position: absolute;
+          left: 14px;
+          top: var(--ph-bar);
+          width: var(--ph-inner);
+          height: var(--ph-inner);
+          background: radial-gradient(
+            circle at 100% 100%,
+            transparent calc(var(--ph-inner) - 0.5px),
+            var(--frame) var(--ph-inner)
+          );
+        }
+      }
+
+      .ph-bar {
+        flex: 1;
+        display: flex;
+        justify-content: flex-end;
+        height: var(--ph-bar);
+        background: var(--frame);
+        border-start-end-radius: calc(var(--ph-bar) / 2);
+        border-end-end-radius: calc(var(--ph-bar) / 2);
+      }
     }
   }
 </style>
@@ -259,7 +351,7 @@ const { homeHref, static: isStatic = false } = Astro.props;
   const sentinel = document.querySelector('[data-header-sentinel]');
   const sections = [...document.querySelectorAll<HTMLElement>('main section[id]')];
   const navLinks = [...document.querySelectorAll<HTMLAnchorElement>('[data-nav-section]')];
-  const phone = window.matchMedia('(max-width: 599.98px)');
+  const phone = window.matchMedia('(width < 600px)');
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   if (header && sentinel) {

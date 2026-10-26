@@ -29,7 +29,7 @@ export default defineConfig({
       provider: fontProviders.fontsource(),
       name: 'JetBrains Mono',
       cssVariable: '--font-jetbrains',
-      // 600, 700 and italic for the scratch diagrams' names, tags and notes.
+      // 600, 700 and italic for the Why diagrams' names, tags and notes.
       weights: [400, 600, 700],
       styles: ['normal', 'italic'],
       subsets: ['latin'],
@@ -64,6 +64,7 @@ export default defineConfig({
           label: 'Start here',
           items: [
             { label: 'Overview', slug: 'docs' },
+            { label: 'Why Hypospray', slug: 'docs/why' },
             { label: 'Getting started', slug: 'docs/getting-started' },
           ],
         },

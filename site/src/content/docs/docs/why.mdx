@@ -1,15 +1,18 @@
 ---
-layout: ../../components/scratch/WhyLayout.astro
 title: Config and mocking are a pain. We can do better.
+description: Why Hypospray exists, from the service graph your app already has to configuration, swaps and tests without import mocking.
 ---
 
-import CaseDiagram from '../../components/scratch/CaseDiagram.astro';
-import Dep from '../../components/scratch/Dep.astro';
-import InjectDiagram from '../../components/scratch/InjectDiagram.astro';
-import Step from '../../components/scratch/Step.astro';
-import Stepper from '../../components/scratch/Stepper.astro';
-import TreeDiagram from '../../components/scratch/TreeDiagram.astro';
-import * as d from '../../components/scratch/why-diagrams';
+import CaseDiagram from '../../../components/why/CaseDiagram.astro';
+import Dep from '../../../components/why/Dep.astro';
+import InjectDiagram from '../../../components/why/InjectDiagram.astro';
+import Step from '../../../components/why/Step.astro';
+import Stepper from '../../../components/why/Stepper.astro';
+import TreeDiagram from '../../../components/why/TreeDiagram.astro';
+import WhyPage from '../../../components/why/WhyPage.astro';
+import * as d from '../../../components/why/why-diagrams';
+
+<WhyPage />
 
 ## 1. Your app runs on a graph of services
 
@@ -220,19 +223,3 @@ In `OrdersTable.test.tsx`, we can provide a fake orders API and keep it isolated
 Test order dependencies and other flakiness are gone, and the test is easier to read and maintain.
 
 <InjectDiagram {...d.injectCases.test} />
-
-<div class="questions">
-
-## Open questions
-
-- Every service in the example reaches down to config, so the lazy steps in beat 5 build the longest
-  chain first and later steps mostly reuse it. Fine for now; a shallower service (one with no
-  dependencies) would make "only what's needed" land harder.
-- `inject()` in components is fine for setup code (or inject the injector and keep it). Update the
-  component examples once the framework adapters settle.
-- Six beats now (old 1 and 2 merged). Could 3 and 4 (pass it in, context) merge too?
-- Sticky graph vs. one diagram per beat: decide once the story works.
-- Beat 1's service files show `const http` with no `export`, so it may not read as something you can
-  import. Adding `export` makes every line longer and every box wider. Revisit.
-
-</div>

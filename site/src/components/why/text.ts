@@ -1,5 +1,5 @@
 /**
- * Text layout shared by the scratch diagrams: monospace runs with a dependency's icon in front of
+ * Text layout shared by the Why diagrams: monospace runs with a dependency's icon in front of
  * its name, so every diagram measures and draws labels the same way.
  */
 import { type Dep, depPattern, deps } from './deps';

@@ -34,31 +34,36 @@ const { title, description } = Astro.props;
   </body>
 </html>
 
-<style is:global>
+<style>
   html {
     background: var(--bg);
     color: var(--text-body);
     font-family: var(--font-body);
     scroll-behavior: smooth;
   }
+
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
     }
   }
+
   body {
     max-width: var(--page-max);
     margin: 0 auto;
     background: var(--bg);
   }
+
   /* The header is fixed, so it's placed against the viewport and needs the same cap as the body. */
-  .lcars-header {
+  :global(.lcars-header) {
     max-width: var(--page-max);
     margin-inline: auto;
   }
-  *,
-  *::before,
-  *::after {
+
+  /* The page-wide reset reaches every component's markup. */
+  :global(*),
+  :global(*::before),
+  :global(*::after) {
     box-sizing: border-box;
   }
 </style>

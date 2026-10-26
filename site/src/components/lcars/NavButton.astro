@@ -24,18 +24,41 @@ const { href, action, hue, label, section, current } = Astro.props;
 </div>
 
 <style>
-  /* --grow is a factor (0 rest, 0.5 hover, 1 selected), not a length: the length is derived from
-     the header geometry, which animates on its own during the morph. Transitioning a derived
-     length (or height/margin) would ease every frame of the morph a second time and lag behind. */
+  /* --grow (button toward segment) and --shrink (segment up toward button) are factors, not
+     lengths: 0 at rest, the header's --nav-hover-grow / --nav-hover-shrink on hover, and --grow 1
+     when selected. The lengths are derived from the header geometry, which animates on its own
+     during the morph. Transitioning a derived length (or height/margin) would ease every frame of
+     the morph a second time and lag behind. */
   .nav-item {
     --grow: 0;
-    transition: --grow var(--motion);
+    --shrink: 0;
+
+    transition:
+      --grow var(--motion),
+      --shrink var(--motion);
     position: relative;
     display: flex;
     flex-direction: column;
     width: var(--nav-w, 108px);
     flex: none;
+
+    /* A selected button grows over its own segment. */
+    &:has(> .nav-btn[aria-current]) {
+      --grow: 1;
+    }
+
+    @media (hover: hover) {
+      &:has(> .nav-btn:hover):not(:has(> .nav-btn[aria-current])) {
+        --grow: var(--nav-hover-grow);
+        --shrink: var(--nav-hover-shrink);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
   }
+
   .nav-btn {
     display: flex;
     align-items: flex-start;
@@ -50,7 +73,27 @@ const { href, action, hue, label, section, current } = Astro.props;
     text-decoration: none;
     transition: background-color var(--motion);
     z-index: 1;
+
+    @media (hover: hover) {
+      &:hover {
+        background: color-mix(in oklab, var(--hue), var(--text) 15%);
+      }
+    }
+
+    &:active {
+      background: color-mix(in oklab, var(--hue), var(--text) 25%);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--text);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
   }
+
   .nav-label {
     display: flex;
     align-items: flex-end;
@@ -61,57 +104,27 @@ const { href, action, hue, label, section, current } = Astro.props;
     line-height: 21.5px;
     letter-spacing: 0.08em;
   }
-  .seg {
-    height: var(--hdr-butter);
-    margin-top: var(--hdr-gap);
-    margin-inline-end: -6px; /* bridge the 6px column gap so the butter bar reads as continuous */
-    background: var(--butter);
-    transition:
-      opacity var(--motion),
-      margin-inline-end var(--motion);
-  }
-  /* A grown button sits over its own segment; the previous segment stops 6px short of it. */
-  .nav-item:has(> .nav-btn[aria-current]) {
-    --grow: 1;
-  }
-  .nav-item:has(> .nav-btn[aria-current]) > .seg {
-    opacity: 0;
-  }
-  @media (hover: hover) {
-    .nav-item:has(> .nav-btn:hover):not(:has(> .nav-btn[aria-current])) {
-      --grow: 0.5;
-    }
-    .nav-item:has(> .nav-btn:hover) > .seg {
-      opacity: 0;
-    }
-    .nav-btn:hover {
-      background: color-mix(in oklab, var(--hue), var(--text) 15%);
-    }
-  }
-  .nav-btn:active {
-    background: color-mix(in oklab, var(--hue), var(--text) 25%);
-  }
-  .nav-btn:focus-visible {
-    outline: 2px solid var(--text);
-    outline-offset: 2px;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .nav-item,
-    .nav-btn,
-    .seg {
-      transition: none;
-    }
-  }
-</style>
 
-<style is:global>
-  /* The segment before a grown item retracts its bridge, leaving the 6px break. */
-  .rail > :has(+ .nav-item > .nav-btn[aria-current]) > .seg {
-    margin-inline-end: 0;
-  }
-  @media (hover: hover) {
-    .rail > :has(+ .nav-item > .nav-btn:hover) > .seg {
-      margin-inline-end: 0;
+  /*
+   * The butter bar is segmented like the buttons: each item's segment is exactly its width, in a
+   * lighter, softer version of the button's hue, roughly as butter is to the frame orange
+   * (OKLCH lightness +0.12 but no lighter than butter's 0.91, chroma ×0.55, hue unchanged).
+   */
+  .seg {
+    /*
+     * Keeps its gap below the growing button and gives up its top to it, so its bottom stays put;
+     * --shrink takes from the bottom instead, so its top stays put.
+     */
+    height: max(
+      0px,
+      var(--hdr-butter) * (1 - var(--shrink)) - (var(--hdr-gap) + var(--hdr-butter)) * var(--grow)
+    );
+    margin-top: var(--hdr-gap);
+    background: oklch(from var(--hue) min(0.91, l + 0.12) calc(c * 0.55) h);
+    transition: opacity var(--motion);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
     }
   }
 </style>

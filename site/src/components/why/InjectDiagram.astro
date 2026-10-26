@@ -1,4 +1,5 @@
 ---
+import './diagram.css';
 import { type Code, CODE_PAD, LINE, highlight, INK } from './code';
 import CodePage from './CodePage.astro';
 import { deps } from './deps';
@@ -251,82 +252,98 @@ const runs = (text: string, x: number, ch = CH, step = ICON_STEP) =>
 <style>
   .inject {
     display: block;
-    width: min(var(--view-width), 100vw - 32px);
+    width: min(var(--view-width), 100%);
     max-width: none;
     height: auto;
-    margin: 16px 0 8px 50%;
-    transform: translateX(-50%);
+    margin: 16px 0 8px;
     overflow: visible;
     font-family: var(--font-jetbrains), monospace;
     font-size: 12px;
   }
+
   .blue {
-    --tone: #36c;
-    --soft: #e2eaff;
+    --tone: var(--d-blue);
+    --soft: var(--d-blue-soft);
   }
+
   .edge {
     fill: none;
     stroke: var(--tone);
     stroke-width: 3;
   }
+
   .edge.ghost {
-    stroke: #999;
+    stroke: var(--d-line);
     stroke-width: 1.5;
     opacity: 0.5;
     stroke-dasharray: 5 3;
   }
+
   .tip.plain path {
-    fill: #999;
+    fill: var(--d-line);
   }
+
   .tip:not(.plain) path {
     fill: var(--tone);
   }
+
   .injector {
-    fill: #f6f8ff;
+    fill: var(--d-blue-wash);
     stroke: var(--tone);
     stroke-dasharray: 6 4;
   }
+
   .injector-label {
     fill: var(--tone);
     font-weight: 600;
     transform: translateY(0.36em);
   }
+
   .table .frame {
     fill: none;
-    stroke: #999;
+    stroke: var(--d-line);
   }
+
   .table .head {
-    fill: #fff;
+    fill: var(--d-paper);
   }
+
   .table .entry {
     fill: var(--soft);
   }
+
   .table .rule {
-    stroke: #999;
+    stroke: var(--d-line);
   }
+
   .heading {
     font-size: 10px;
-    fill: #888;
+    fill: var(--d-muted);
     transform: translateY(0.36em);
   }
+
   .cell {
-    color: #222;
+    color: var(--d-ink);
   }
+
   .cell text {
     transform: translateY(0.36em);
     white-space: pre;
-    fill: currentColor;
+    fill: currentcolor;
   }
+
   .cell.name text {
     font-weight: 600;
   }
+
   .icon {
     fill: none;
-    stroke: currentColor;
+    stroke: currentcolor;
     stroke-width: 1.5;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
+
   .note {
     font-size: 11px;
     font-style: italic;

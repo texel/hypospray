@@ -10,6 +10,8 @@
     "site:preview": "pnpm --filter hypospray-site preview",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
+    "lint:css": "stylelint \"**/*.{css,astro}\" && node site/scripts/check-global-styles.mjs",
+    "lint:css:fix": "stylelint \"**/*.{css,astro}\" --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "vitest run",
@@ -17,7 +19,7 @@
     "test:regression": "vitest run --tagsFilter regression",
     "typecheck": "pnpm -r run typecheck",
     "clean": "pnpm -r exec rm -rf dist *.tsbuildinfo",
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run lint:css && pnpm run typecheck && pnpm run test",
     "changeset": "changeset",
     "version:packages": "changeset version",
     "release": "changeset publish"
@@ -29,6 +31,10 @@
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "^7.0.2001",
+    "postcss-html": "catalog:",
+    "stylelint": "catalog:",
+    "stylelint-config-html": "catalog:",
+    "stylelint-config-standard": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

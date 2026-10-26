@@ -14,6 +14,7 @@
   --sl-color-bg-nav: var(--bg);
   --sl-color-bg-sidebar: var(--bg);
   --sl-color-hairline-shade: var(--rule);
+
   /* Asides: note → HOW hue, tip → WHY hue, caution → frame orange. Danger keeps Starlight's red. */
   --sl-color-blue-low: var(--how-dim);
   --sl-color-blue: var(--how);
@@ -27,10 +28,12 @@
   --sl-font: var(--font-body);
   --sl-font-mono: var(--font-code);
   --sl-text-base: 1.125rem;
+
   /* The static compact LCARS band: 8 + 12 + 24 + 4 + 7 + 25 + 6. */
   --sl-nav-height: 86px;
 }
-@media (max-width: 599.98px) {
+
+@media (width < 600px) {
   :root {
     --sl-nav-height: 46px;
   }
@@ -42,6 +45,7 @@
   border-bottom: 0;
   background: var(--bg);
 }
+
 /* Inside Starlight the <header class="header"> wrapper is fixed, so the LCARS header sits in it. */
 .page > .header .lcars-header {
   position: absolute;
@@ -54,6 +58,13 @@ h1#_top {
   text-transform: uppercase;
   letter-spacing: 0.01em;
   color: var(--text);
+}
+
+/* Code keeps its case: `<Context>` isn't `<CONTEXT>`. */
+.sl-markdown-content :is(h1, h2, h3, h4) :is(code, pre),
+h1#_top :is(code, pre) {
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .sidebar-content summary .group-label .large {

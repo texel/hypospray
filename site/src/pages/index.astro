@@ -277,39 +277,48 @@ const tabs = [
   <Dock slot="dock" />
 </Landing>
 
-<style is:global>
+<style>
   .hdr-spacer {
     position: relative;
-    height: 186px;
+    height: 184px;
   }
+
+  /* Compact once content has risen to the compact header's bottom edge (86px), so the morph never leaves a gap. */
   [data-header-sentinel] {
     position: absolute;
-    top: 24px;
+    top: calc(184px - 86px);
     width: 1px;
     height: 1px;
   }
-  main section[id] {
+
+  :global(main section[id]) {
     scroll-margin-top: 86px;
   }
-  @media (min-width: 600px) and (max-width: 1049.98px) {
+
+  @media (600px <= width < 1050px) {
     .hdr-spacer {
       height: 92px;
     }
   }
-  @media (max-width: 599.98px) {
+
+  @media (width < 600px) {
     .hdr-spacer {
       height: 70px;
     }
-    main section[id] {
+
+    [data-header-sentinel] {
+      top: calc(70px - 46px);
+    }
+
+    :global(main section[id]) {
       scroll-margin-top: 46px;
     }
-    body {
+
+    :global(body) {
       padding-bottom: 110px;
     }
   }
-</style>
 
-<style>
   h1,
   h2,
   h3,
@@ -320,39 +329,49 @@ const tabs = [
     text-transform: uppercase;
     color: var(--text);
   }
+
+  /* Antonio's capitals carry ~0.064em of left bearing; pull it back so the ink sits on the content edge, under the title's. */
   h1 {
     font-size: 64px;
     line-height: 1;
+    margin-left: -0.064em;
   }
+
   h2 {
     font-size: 44px;
     line-height: 1.05;
     margin-bottom: 20px;
   }
+
   h3 {
     font-size: 24px;
     line-height: 1.2;
     margin-bottom: 8px;
   }
+
   .lede {
     max-width: 36ch;
     margin: 24px 0 32px;
     font-size: 21px;
     line-height: 1.5;
   }
+
   .lede.wide {
     max-width: 60ch;
     margin-top: 0;
   }
+
   .lede code {
     font-family: var(--font-code);
     font-size: 0.85em;
     color: var(--docs);
   }
+
   p {
     font-size: 18px;
     line-height: 1.5;
   }
+
   .hero {
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
@@ -363,15 +382,19 @@ const tabs = [
     gap: 40px 64px;
     align-items: start;
   }
+
   .hero-copy {
     grid-area: copy;
   }
+
   .hero .lede {
     margin-bottom: 0;
   }
+
   .hero-visual {
     grid-area: visual;
   }
+
   .actions {
     grid-area: actions;
     display: flex;
@@ -379,21 +402,25 @@ const tabs = [
     gap: 16px;
     align-items: center;
   }
+
   .benefits {
     display: grid;
     grid-area: benefits;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 32px;
   }
+
   .why-outro {
     margin: 56px 0 0;
   }
+
   .why-outro a {
     color: var(--text);
     text-decoration-color: var(--how);
     text-decoration-thickness: 2px;
     text-underline-offset: 3px;
   }
+
   .install {
     display: flex;
     flex-wrap: wrap;
@@ -401,10 +428,12 @@ const tabs = [
     align-items: center;
     margin-bottom: 40px;
   }
+
   .install p {
     margin: 0;
     color: var(--text-muted);
   }
+
   .cta {
     display: flex;
     flex-wrap: wrap;
@@ -413,17 +442,21 @@ const tabs = [
     gap: 24px;
     margin-top: 96px;
   }
+
   .cta-title {
     font-size: 36px;
   }
+
   .cta p {
     margin: 4px 0 0;
   }
+
   .cta-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
   }
+
   .footer {
     display: flex;
     flex-wrap: wrap;
@@ -435,21 +468,23 @@ const tabs = [
     text-transform: uppercase;
     color: var(--text-muted);
   }
-  @media (max-width: 1049.98px) {
+
+  @media (width < 1050px) {
     .hero {
       grid-template-areas: 'copy' 'visual' 'actions' 'benefits';
-    }
-    .hero {
       grid-template-columns: minmax(0, 1fr);
     }
+
     .benefits {
       grid-template-columns: minmax(0, 1fr);
     }
   }
-  @media (max-width: 599.98px) {
+
+  @media (width < 600px) {
     h1 {
       font-size: 44px;
     }
+
     h2 {
       font-size: 32px;
     }

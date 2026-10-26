@@ -1,0 +1,38 @@
+/*
+ * Colours for the Why diagrams, on the site's dark palette. Flows keep their meaning: purple is
+ * hard-wired, orange is carried by hand, blue is Hypospray, red is missing, green is just added.
+ * Each has a tone (solid: where a flow starts) and a soft fill (what it reaches).
+ */
+:root {
+  --d-bg: var(--bg);
+  --d-ink: var(--text);
+  --d-muted: var(--text-muted);
+  --d-dim: #6a5f55;
+  --d-line: #7d7166;
+  --d-faint: #4a3e33;
+
+  /* Files and service boxes: the code panel's colour, a step up from the page. */
+  --d-paper: var(--panel);
+  --d-fill: #221b15;
+  --d-band: #0f0c09;
+
+  /* A file's name bar: lighter than its page, whatever the page's fill. */
+  --d-shade: rgb(255 255 255 / 7%);
+
+  /* Text on a solid mark. */
+  --d-on-tone: var(--bg);
+  --d-red: #ff8a7a;
+  --d-red-soft: #5a2420;
+  --d-purple: var(--why);
+  --d-purple-soft: var(--why-dim);
+  --d-orange: var(--frame);
+  --d-orange-soft: var(--hero-dim);
+  --d-blue: var(--how);
+  --d-blue-soft: var(--how-dim);
+  --d-green: #8fd6a0;
+  --d-green-soft: #24452c;
+
+  /* Behind a whole frame (an injector, the app's root): barely there. */
+  --d-orange-wash: #160f07;
+  --d-blue-wash: #0c0d1a;
+}

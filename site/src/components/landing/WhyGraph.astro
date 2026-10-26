@@ -218,6 +218,7 @@ const uid = id;
     height: auto;
     overflow: visible;
   }
+
   .graph * {
     transition:
       opacity var(--motion),
@@ -231,6 +232,7 @@ const uid = id;
     stroke: transparent;
     stroke-width: 1.5;
   }
+
   .node text,
   .badge text,
   .half-label,
@@ -242,33 +244,39 @@ const uid = id;
     text-anchor: middle;
     dominant-baseline: central;
   }
+
   .node text {
     fill: var(--hue);
   }
+
   .node.component text {
     text-transform: none;
     font-family: var(--font-code);
     font-size: 13px;
     letter-spacing: 0;
   }
+
   .graph[data-state='imports'] [data-lit~='imports'] rect,
   .graph[data-state='wiring'] [data-lit~='wiring'] rect,
   .graph[data-state='inject'] [data-lit~='inject'] rect,
   .graph[data-state='override'] [data-lit~='override'] rect {
     fill: var(--hue);
   }
+
   .graph[data-state='imports'] [data-lit~='imports'] text,
   .graph[data-state='wiring'] [data-lit~='wiring'] text,
   .graph[data-state='inject'] [data-lit~='inject'] text,
   .graph[data-state='override'] [data-lit~='override'] text {
     fill: var(--bg);
   }
+
   .graph[data-state='inject'] [data-ghost~='inject'] rect,
   .graph[data-state='override'] [data-ghost~='override'] rect {
     fill: transparent;
     stroke: var(--text-muted);
     stroke-dasharray: 4 3;
   }
+
   .graph[data-state='inject'] [data-ghost~='inject'] text,
   .graph[data-state='override'] [data-ghost~='override'] text {
     fill: var(--text-muted);
@@ -282,31 +290,40 @@ const uid = id;
     stroke-width: 2;
     opacity: 0;
   }
+
   .edge .tip {
     stroke: var(--text-muted);
     opacity: 1;
   }
+
   .edge .tip-hot {
     stroke: var(--hue);
   }
+
   .edge .tip-mock {
     stroke: var(--how);
   }
+
   .edge .tip-miss {
     stroke: var(--frame);
   }
+
   marker.tip path {
     fill: var(--text-muted);
   }
+
   marker.tip-hot path {
     fill: var(--hue);
   }
+
   marker.tip-mock path {
     fill: var(--how);
   }
+
   marker.tip-miss path {
     fill: var(--frame);
   }
+
   .graph[data-state='imports'] [data-hot~='imports'] .tip,
   .graph[data-state='inject'] [data-hot~='inject'] .tip,
   .graph[data-state='override'] [data-hot~='override'] .tip,
@@ -315,6 +332,7 @@ const uid = id;
   .graph[data-state='mocks'] [data-miss~='mocks'] .tip {
     opacity: 0;
   }
+
   .graph[data-state='imports'] [data-hot~='imports'] .tip-hot,
   .graph[data-state='inject'] [data-hot~='inject'] .tip-hot,
   .graph[data-state='override'] [data-hot~='override'] .tip-hot,
@@ -323,6 +341,7 @@ const uid = id;
   .graph[data-state='mocks'] [data-miss~='mocks'] .tip-miss {
     opacity: 1;
   }
+
   .graph[data-state='inject'] .edge[data-ghost~='inject'] line,
   .graph[data-state='override'] .edge[data-ghost~='override'] line {
     stroke-dasharray: 4 3;
@@ -332,6 +351,7 @@ const uid = id;
   .extra {
     opacity: 0;
   }
+
   .graph[data-state='imports'] [data-in='imports'],
   .graph[data-state='mocks'] [data-in='mocks'],
   .graph[data-state='wiring'] [data-in='wiring'],
@@ -339,46 +359,57 @@ const uid = id;
   .graph[data-state='override'] [data-in='override'] {
     opacity: 1;
   }
+
   .half.mock,
   .swap {
     fill: var(--how);
   }
+
   .half.miss {
     fill: var(--frame);
   }
+
   .half-label {
     font-size: 12px;
     fill: var(--bg);
   }
+
   .swap-label {
     fill: var(--bg);
   }
+
   .path {
     font-family: var(--font-code);
     font-size: 11px;
     dominant-baseline: central;
   }
+
   .path.mock {
     fill: var(--how);
   }
+
   .path.miss {
     fill: var(--frame);
   }
+
   .badge circle {
     fill: var(--bg);
     stroke: var(--hue);
     stroke-width: 2;
   }
+
   .badge text {
     font-size: 12px;
     fill: var(--hue);
   }
+
   .note {
     font-family: var(--font-code);
     font-size: 12px;
     fill: var(--text-muted);
     text-anchor: middle;
   }
+
   @media (prefers-reduced-motion: reduce) {
     .graph * {
       transition: none;

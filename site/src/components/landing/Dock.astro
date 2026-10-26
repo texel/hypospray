@@ -37,10 +37,11 @@ const items = [
   .dock {
     display: none;
   }
-  @media (max-width: 599.98px) {
+
+  @media (width < 600px) {
     .dock {
       position: fixed;
-      inset: auto 8px 0 8px;
+      inset: auto 8px 0;
       z-index: 50;
       display: flex;
       align-items: flex-end;
@@ -49,6 +50,7 @@ const items = [
       background: var(--bg);
     }
   }
+
   /* Corner: 14px post from above, 44px bar, outer curve bottom-left. */
   .dock-corner {
     position: relative;
@@ -61,6 +63,7 @@ const items = [
     border-end-start-radius: 44px;
     cursor: pointer;
   }
+
   .dock-corner::before {
     content: '';
     position: absolute;
@@ -71,20 +74,24 @@ const items = [
     background: var(--bg);
     border-end-start-radius: 12px;
   }
+
   .dock-corner svg {
     position: absolute;
     inset: 0;
     opacity: 0;
     transition: opacity var(--motion);
   }
+
   :global(body:has(.lcars-header[data-compact])) .dock-corner svg {
     opacity: 1;
   }
+
   .dock-corner:focus-visible,
   .dock-btn:focus-visible {
     outline: 2px solid var(--text);
     outline-offset: 2px;
   }
+
   .dock-btn {
     flex: 1;
     display: flex;
@@ -102,10 +109,12 @@ const items = [
       height var(--motion),
       font-size var(--motion);
   }
+
   .dock-btn[aria-current] {
     height: 60px;
     font-size: 17px;
   }
+
   @media (prefers-reduced-motion: reduce) {
     .dock-btn,
     .dock-corner svg {

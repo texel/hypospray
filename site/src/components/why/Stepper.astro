@@ -1,8 +1,8 @@
 ---
 /**
  * Steps that swap one diagram as you scroll. Write each step as a `<Step diagram={…}>` holding
- * Markdown, and pass the same diagrams, in order, as `diagrams`: on wide screens they're stacked
- * on a sticky stage beside the steps, and the step crossing the middle of the viewport picks one.
+ * Markdown, and pass the same diagrams, in order, as `diagrams`: given room, they're stacked on a
+ * sticky stage beside the steps, and the step crossing the middle of the viewport picks one.
  */
 import InjectDiagram from './InjectDiagram.astro';
 import TreeDiagram from './TreeDiagram.astro';
@@ -20,43 +20,59 @@ const Diagram = as as typeof TreeDiagram;
 ---
 
 <div class="stepper" data-stepper style={gap === undefined ? undefined : `--step-gap: ${gap}px`}>
-  <div class="steps">
-    <slot />
-  </div>
-  <div class="stage" aria-hidden="true">
-    {diagrams.map((diagram) => (
-      <div class="stage-frame">
-        <Diagram {...diagram} />
-      </div>
-    ))}
+  <div class="stepper-body">
+    <div class="steps">
+      <slot />
+    </div>
+    <div class="stage" aria-hidden="true">
+      {diagrams.map((diagram) => (
+        <div class="stage-frame">
+          <Diagram {...diagram} />
+        </div>
+      ))}
+    </div>
   </div>
 </div>
 
-<style is:global>
+<style>
   .stepper {
     /* Space between steps: with each step's own text, how far you scroll from one to the next. */
     --step-gap: 60px;
+
+    /* Side by side once the stepper itself has the room, wherever it sits on the page. */
+    container-type: inline-size;
   }
+
   .stepper .stage {
     display: none;
   }
+
+  /*
+   * The page's prose spaces each element after a sibling: not here, where frames stack in one
+   * cell (the first would sit higher than the rest) and steps are spaced by --step-gap.
+   */
+  .stepper :global(.step),
+  .stepper .stage-frame {
+    margin-top: 0;
+  }
+
   /* Two in a row read as two pictures, not one (the first one on the page is followed by its script). */
   .stepper + .stepper,
-  .stepper + script + .stepper {
+  .stepper + :global(script) + .stepper {
     margin-top: 56px;
   }
-  @media (min-width: 1000px) {
-    .stepper[data-live] {
+
+  @container (min-width: 760px) {
+    .stepper[data-live] .stepper-body {
       display: grid;
       grid-template-columns: 240px minmax(0, 1fr);
       gap: 32px;
-      width: min(1040px, 100vw - 32px);
-      margin-left: 50%;
-      transform: translateX(-50%);
     }
-    .stepper[data-live] .step-art {
+
+    .stepper[data-live] :global(.step-art) {
       display: none;
     }
+
     /*
      * The stage pins centred in the viewport (--pin-top, set by the script), and everything lines
      * up on its top edge: the first step starts there, and each next one takes over as it scrolls
@@ -65,50 +81,60 @@ const Diagram = as as typeof TreeDiagram;
     .stepper[data-live] .stage {
       display: grid;
       position: sticky;
-      top: var(--pin-top, 16px);
+      top: var(--pin-top, var(--sl-nav-height, 16px));
       align-self: start;
     }
+
     /* A step's height plus the gap is how far you scroll before the next one takes over. */
-    .stepper[data-live] .step {
+    .stepper[data-live] :global(.step) {
       /* The box is exactly its text: no paragraph margins leaking out to throw the measuring off. */
       display: flow-root;
       margin-bottom: var(--step-gap);
       padding-left: 14px;
-      border-left: 3px solid #ddd;
+      border-left: 3px solid var(--d-faint);
+
       /* Linked to, a step lands on the line that activates it. */
-      scroll-margin-top: var(--pin-top, 16px);
+      scroll-margin-top: var(--pin-top, var(--sl-nav-height, 16px));
     }
-    .stepper[data-live] .step:last-child {
+
+    .stepper[data-live] :global(.step:last-child) {
       margin-bottom: 0;
     }
-    .stepper[data-live] .step > p:first-of-type {
+
+    .stepper[data-live] :global(.step > p:first-of-type) {
       margin-top: 0;
     }
-    .stepper[data-live] .step > p:last-of-type {
+
+    .stepper[data-live] :global(.step > p:last-of-type) {
       margin-bottom: 0;
     }
+
     /*
      * Room after the last step (--tail, measured), so the stage stays pinned until the last step
      * reaches its top; from there the whole stepper, picture and all, scrolls on as one.
      */
     .stepper[data-live] .steps {
-      padding-bottom: var(--tail, 0px);
+      padding-bottom: var(--tail, 0);
     }
-    .stepper[data-live] .step[data-active] {
-      border-left-color: #36c;
+
+    .stepper[data-live] :global(.step[data-active]) {
+      border-left-color: var(--d-blue);
     }
+
     /* A wide diagram fits the stage's column, rather than breaking out of it; a narrow one keeps its size. */
-    .stepper .stage-frame .tree.wide,
-    .stepper .stage-frame .inject {
+    .stepper .stage-frame :global(.tree.wide),
+    .stepper .stage-frame :global(.inject) {
       width: min(100%, var(--view-width));
       margin-left: 0;
       transform: none;
     }
+
     .stepper .stage-frame {
       grid-area: 1 / 1;
       opacity: 0;
-      transition: opacity 0.25s;
+      transition: opacity calc(250ms * var(--motion-scale)) var(--motion-ease);
     }
+
     .stepper .stage-frame[data-active] {
       opacity: 1;
     }
@@ -135,8 +161,10 @@ const Diagram = as as typeof TreeDiagram;
     let line = 16;
     const layout = () => {
       if (!stage) return;
+      // Centred in what the page's fixed header leaves of the viewport.
+      const header = parseFloat(getComputedStyle(stepper).getPropertyValue('--sl-nav-height')) || 0;
       const height = stage.offsetHeight;
-      pinTop = Math.max(16, (innerHeight - height) / 2);
+      pinTop = Math.max(header + 16, header + (innerHeight - header - height) / 2);
       stepper.style.setProperty('--pin-top', `${pinTop}px`);
       line = pinTop + height * TAKEOVER;
       const last = steps.at(-1);

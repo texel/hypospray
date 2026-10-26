@@ -19,6 +19,7 @@
 }
 
 /* Semantic tokens (dark). A light theme would redefine only this block. */
+/* stylelint-disable-next-line no-duplicate-selectors -- kept apart from the raw palette on purpose */
 :root {
   --bg: var(--palette-black);
   --frame: var(--palette-orange);
@@ -36,14 +37,32 @@
   --text-muted: var(--palette-stone);
   --rule: var(--palette-umber);
   --panel: var(--palette-ink);
-
   --font-display: var(--font-antonio), 'Antonio', sans-serif;
   --font-body: var(--font-barlow), 'Barlow Semi Condensed', sans-serif;
   --font-code: var(--font-jetbrains), 'JetBrains Mono', monospace;
 
-  --motion: 200ms ease;
+  /* Left frame column: the sections' sidebar and the header's corner post share its width. */
+  --rail-w: 112px;
+  --rail-gap: 46px;
+
+  /*
+   * Every transition uses --motion. Raise --motion-scale (say, to 10 on :root in devtools) to watch
+   * animations in slow motion.
+   */
+  --motion-scale: 1;
+  --motion-duration: calc(200ms * var(--motion-scale));
+  --motion-ease: ease;
+  --motion: var(--motion-duration) var(--motion-ease);
   --page-max: 1440px;
+
   color-scheme: dark;
+}
+
+@media (600px <= width < 1050px) {
+  :root {
+    --rail-w: 72px;
+    --rail-gap: 32px;
+  }
 }
 
 /* Header geometry. Registered so the full ⇄ compact morph can transition them. */
@@ -52,76 +71,97 @@
   inherits: true;
   initial-value: 12px;
 }
+
 @property --hdr-rise {
   syntax: '<length>';
   inherits: true;
   initial-value: 48px;
 }
+
 @property --hdr-bar {
   syntax: '<length>';
   inherits: true;
   initial-value: 48px;
 }
+
 @property --hdr-gap {
   syntax: '<length>';
   inherits: true;
-  initial-value: 8px;
+  initial-value: 6px;
 }
+
 @property --hdr-butter {
   syntax: '<length>';
   inherits: true;
   initial-value: 14px;
 }
+
 @property --hdr-drop {
   syntax: '<length>';
   inherits: true;
   initial-value: 50px;
 }
+
 @property --hdr-outer-o {
   syntax: '<length>';
   inherits: true;
   initial-value: 54px;
 }
+
 @property --hdr-inner-o {
   syntax: '<length>';
   inherits: true;
   initial-value: 27px;
 }
+
 @property --hdr-outer-b {
   syntax: '<length>';
   inherits: true;
   initial-value: 54px;
 }
+
 @property --hdr-inner-b {
   syntax: '<length>';
   inherits: true;
   initial-value: 27px;
 }
+
 @property --hdr-label-pad {
   syntax: '<length>';
   inherits: true;
   initial-value: 5px;
 }
+
 @property --grow {
   syntax: '<number>';
   inherits: true;
   initial-value: 0;
 }
+
+@property --shrink {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
 @property --ph-bar {
   syntax: '<length>';
   inherits: true;
   initial-value: 44px;
 }
+
 @property --ph-drop {
   syntax: '<length>';
   inherits: true;
   initial-value: 12px;
 }
+
 @property --ph-outer {
   syntax: '<length>';
   inherits: true;
   initial-value: 44px;
 }
+
 @property --ph-inner {
   syntax: '<length>';
   inherits: true;

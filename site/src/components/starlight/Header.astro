@@ -42,21 +42,24 @@ const onApi = path.startsWith(withBase('/docs/reference/'));
   }
 </script>
 
-<style is:global>
+<style>
   /* Keep the dialog; hide only Starlight's own trigger. */
-  .search-host button[data-open-modal] {
+  .search-host :global(button[data-open-modal]) {
     display: none !important;
   }
+
   /* GUIDE / API / GITHUB live in the mobile menu below Starlight's 50rem breakpoint. */
-  @media (max-width: 49.99rem) {
-    .lcars-header .rail > .nav-item:not(:has([data-action='search'])) {
+  @media (width < 50rem) {
+    :global(.lcars-header .rail > .nav-item:not(:has([data-action='search']))) {
       display: none;
     }
-    .lcars-header .rail {
+
+    :global(.lcars-header .rail) {
       margin-inline-end: calc(var(--sl-menu-button-size) + 1rem);
     }
   }
-  .lcars-header .phone-search {
+
+  :global(.lcars-header) .phone-search {
     margin-inline-end: calc(var(--sl-menu-button-size) + 0.5rem);
     padding: 0 10px;
     border: 0;
@@ -67,7 +70,8 @@ const onApi = path.startsWith(withBase('/docs/reference/'));
     letter-spacing: 0.08em;
     cursor: pointer;
   }
-  .lcars-header .phone-search:focus-visible {
+
+  :global(.lcars-header) .phone-search:focus-visible {
     outline: 2px solid var(--text);
     outline-offset: 2px;
   }

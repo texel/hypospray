@@ -24,12 +24,10 @@ const { command } = Astro.props;
     height: 48px;
     max-width: 100%;
   }
+
   .dollar,
   .copy {
     flex: none;
-  }
-  .dollar,
-  .copy {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -37,10 +35,12 @@ const { command } = Astro.props;
     color: var(--bg);
     font-family: var(--font-display);
   }
+
   .dollar {
     width: 40px;
     font-size: 18px;
   }
+
   .cmd {
     display: flex;
     align-items: center;
@@ -53,12 +53,14 @@ const { command } = Astro.props;
     min-width: 0;
     overflow-x: auto;
   }
-  @media (max-width: 599.98px) {
+
+  @media (width < 600px) {
     .cmd {
       padding-inline: 10px;
       font-size: 13px;
     }
   }
+
   .copy {
     width: 76px;
     border: 0;
@@ -68,6 +70,7 @@ const { command } = Astro.props;
     letter-spacing: 0.1em;
     cursor: pointer;
   }
+
   .copy:focus-visible {
     outline: 2px solid var(--text);
     outline-offset: 2px;

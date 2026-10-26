@@ -61,6 +61,7 @@ const { tabs } = Astro.props;
     gap: 6px;
     margin-bottom: 16px;
   }
+
   .tab {
     display: flex;
     align-items: flex-end;
@@ -79,25 +80,30 @@ const { tabs } = Astro.props;
       background-color var(--motion),
       color var(--motion);
   }
+
   .tab[aria-selected='true'] {
     background: var(--uses);
     color: var(--bg);
   }
+
   @media (hover: hover) {
     .tab:hover:not([aria-selected='true']) {
       background: color-mix(in oklab, var(--uses-dim), var(--text) 15%);
     }
   }
+
   .tab:focus-visible {
     outline: 2px solid var(--text);
     outline-offset: 2px;
   }
+
   .caption {
     margin: 0 0 12px;
     font-size: 20px;
     line-height: 1.5;
     color: var(--text-body);
   }
+
   @media (prefers-reduced-motion: reduce) {
     .tab {
       transition: none;

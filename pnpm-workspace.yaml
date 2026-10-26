@@ -11,6 +11,10 @@ catalog:
   '@types/node': ^26.2.0
   oxfmt: ^0.73.0
   oxlint: ^1.79.0
+  postcss-html: ^2.0.0
+  stylelint: ^17.16.0
+  stylelint-config-html: ^2.0.0
+  stylelint-config-standard: ^40.0.0
   typescript: ^7.0.2
   vite: ^8.2.2
   vitest: ^4.1.11

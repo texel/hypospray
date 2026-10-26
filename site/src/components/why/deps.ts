@@ -1,5 +1,5 @@
 /**
- * One icon per service on the Why scratch page. Wherever a service's name appears in a diagram
+ * One icon per service on the Why page. Wherever a service's name appears in a diagram
  * (its own node, a prop, an argument), its icon goes in front, so each dependency can be followed
  * by eye. Icons are drawn on a 16×16 grid in `currentColor`.
  */
