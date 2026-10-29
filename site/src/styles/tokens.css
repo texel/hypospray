@@ -1,0 +1,176 @@
+/* Raw palette — never referenced by components directly. */
+:root {
+  --palette-black: #050403;
+  --palette-orange: #ff9f1c;
+  --palette-butter: #f5e3a0;
+  --palette-lilac: #c59bd8;
+  --palette-lilac-dim: #5f4a68;
+  --palette-periwinkle: #8f95f2;
+  --palette-periwinkle-dim: #454874;
+  --palette-sky: #8cc8f5;
+  --palette-sky-dim: #436076;
+  --palette-peach: #ffc58a;
+  --palette-amber-dim: #7a4e14;
+  --palette-cream: #f2e4cf;
+  --palette-sand: #d9c8b2;
+  --palette-stone: #9a8f84;
+  --palette-umber: #3a2f26;
+  --palette-ink: #120e0a;
+}
+
+/* Semantic tokens (dark). A light theme would redefine only this block. */
+/* stylelint-disable-next-line no-duplicate-selectors -- kept apart from the raw palette on purpose */
+:root {
+  --bg: var(--palette-black);
+  --frame: var(--palette-orange);
+  --butter: var(--palette-butter);
+  --why: var(--palette-lilac);
+  --why-dim: var(--palette-lilac-dim);
+  --how: var(--palette-periwinkle);
+  --how-dim: var(--palette-periwinkle-dim);
+  --uses: var(--palette-sky);
+  --uses-dim: var(--palette-sky-dim);
+  --docs: var(--palette-peach);
+  --hero-dim: var(--palette-amber-dim);
+  --text: var(--palette-cream);
+  --text-body: var(--palette-sand);
+  --text-muted: var(--palette-stone);
+  --rule: var(--palette-umber);
+  --panel: var(--palette-ink);
+  --font-display: var(--font-antonio), 'Antonio', sans-serif;
+  --font-body: var(--font-barlow), 'Barlow Semi Condensed', sans-serif;
+  --font-code: var(--font-jetbrains), 'JetBrains Mono', monospace;
+
+  /* Left frame column: the sections' sidebar and the header's corner post share its width. */
+  --rail-w: 112px;
+  --rail-gap: 46px;
+
+  /*
+   * Every transition uses --motion. Raise --motion-scale (say, to 10 on :root in devtools) to watch
+   * animations in slow motion.
+   */
+  --motion-scale: 1;
+  --motion-duration: calc(200ms * var(--motion-scale));
+  --motion-ease: ease;
+  --motion: var(--motion-duration) var(--motion-ease);
+  --page-max: 1440px;
+
+  color-scheme: dark;
+}
+
+@media (600px <= width < 1050px) {
+  :root {
+    --rail-w: 72px;
+    --rail-gap: 32px;
+  }
+}
+
+/* Header geometry. Registered so the full ⇄ compact morph can transition them. */
+@property --hdr-pad {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 12px;
+}
+
+@property --hdr-rise {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 48px;
+}
+
+@property --hdr-bar {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 48px;
+}
+
+@property --hdr-gap {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 6px;
+}
+
+@property --hdr-butter {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 14px;
+}
+
+@property --hdr-drop {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 50px;
+}
+
+@property --hdr-outer-o {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 54px;
+}
+
+@property --hdr-inner-o {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 27px;
+}
+
+@property --hdr-outer-b {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 54px;
+}
+
+@property --hdr-inner-b {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 27px;
+}
+
+@property --hdr-label-pad {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 5px;
+}
+
+@property --grow {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --shrink {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --ph-bar {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 44px;
+}
+
+@property --ph-drop {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 12px;
+}
+
+@property --ph-outer {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 44px;
+}
+
+@property --ph-inner {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 12px;
+}
+
+.expressive-code,
+code,
+pre,
+kbd {
+  font-variant-ligatures: none;
+}

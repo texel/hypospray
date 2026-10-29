@@ -1,0 +1,603 @@
+---
+import Flask from '../assets/symbols/flask.svg';
+import Sharing from '../assets/symbols/sharing.svg';
+import Sliders from '../assets/symbols/sliders.svg';
+import Swap from '../assets/symbols/swap.svg';
+import Button from '../components/landing/Button.astro';
+import Case from '../components/landing/Case.astro';
+import CodePanel from '../components/landing/CodePanel.astro';
+import Dock from '../components/landing/Dock.astro';
+import Feature from '../components/landing/Feature.astro';
+import HeroVisual from '../components/landing/HeroVisual.astro';
+import InstallChip from '../components/landing/InstallChip.astro';
+import Section from '../components/landing/Section.astro';
+import Step from '../components/landing/Step.astro';
+import Header from '../components/lcars/Header.astro';
+import NavButton from '../components/lcars/NavButton.astro';
+import Landing from '../layouts/Landing.astro';
+import { stardate } from '../lib/stardate';
+import { ts } from '../lib/template-helpers';
+import { withBase } from '../lib/url';
+
+const guide = withBase('/docs/getting-started/');
+const api = withBase('/docs/reference/core/');
+const why = withBase('/docs/why/');
+const github = 'https://github.com/texel/hypospray';
+
+// Placeholder tiles until the real logos are in. Any number works: the grid wraps.
+const platforms = [
+  'React',
+  'Vue',
+  'Svelte',
+  'Solid',
+  'Angular',
+  'Node',
+  'Bun',
+  'Deno',
+  'TypeScript',
+  'JavaScript',
+];
+---
+
+<Landing
+  title="Hypospray — painless dependency injection for TypeScript"
+  description="Make your app easier to configure, test, and maintain with Hypospray, a dependency injection library for TypeScript."
+>
+  <Header slot="header" homeHref="#">
+    <NavButton href="#why" section="why" hue="var(--why)" label="WHY" />
+    <NavButton href="#how" section="how" hue="var(--how)" label="HOW" />
+    <NavButton href="#features" section="features" hue="var(--uses)" label="FEATURES" />
+    <NavButton href={withBase('/docs/')} hue="var(--docs)" label="DOCS" />
+  </Header>
+
+  <div class="hdr-spacer">
+    <div data-header-sentinel></div>
+  </div>
+
+  <Section id="hero" hue="var(--frame)" dim="var(--hero-dim)">
+    <div class="hero">
+      <div class="hero-copy">
+        <h1>Painless dependency injection for TypeScript.</h1>
+        <p class="lede">Make your app easier to configure, test, and maintain.</p>
+      </div>
+      <div class="hero-visual">
+        <HeroVisual />
+      </div>
+      <div class="actions">
+        <Button href={guide}>Get started</Button>
+        <InstallChip command="npm i @hypospray/core" />
+      </div>
+    </div>
+  </Section>
+
+  <Section id="why" name="Why" hue="var(--why)" dim="var(--why-dim)">
+    <h2>You're already managing dependencies.</h2>
+    <p class="lede">You could use some help.</p>
+
+    <ul class="cases">
+      <Case>
+        <Fragment slot="title">Test without mocking imports</Fragment>
+        <Flask slot="illustration" />
+        <p>
+          Give each test its own fake dependencies, without rewriting imports or changing your
+          application code.
+        </p>
+      </Case>
+      <Case>
+        <Fragment slot="title">Configure your app in one place</Fragment>
+        <Sliders slot="illustration" />
+        <p>
+          Provide configuration for components and services without passing it through everything in
+          between.
+        </p>
+      </Case>
+      <Case>
+        <Fragment slot="title">Change implementations without changing callers</Fragment>
+        <Swap slot="illustration" />
+        <p>
+          Switch between real and fake APIs, browser and server clients, or different providers
+          without updating the code that uses them.
+        </p>
+      </Case>
+      <Case>
+        <Fragment slot="title">Share services without global state</Fragment>
+        <Sharing slot="illustration" />
+        <p>
+          Reuse the same client across your app, while giving each test or feature its own instance
+          when needed.
+        </p>
+      </Case>
+    </ul>
+    <p class="more">
+      <a href={why}>Why imports, props, and context get awkward</a>
+    </p>
+  </Section>
+
+  <Section id="how" name="How" hue="var(--how)" dim="var(--how-dim)">
+    <h2>Ask for what you need, choose what you get.</h2>
+    <p class="lede wide">
+      Hypospray builds your dependencies when they’re needed, including anything they depend on. You
+      don’t have to construct them yourself or keep the wiring in order.
+    </p>
+    <ol class="steps">
+      <Step number={1}>
+        <Fragment slot="title">Ask for configuration</Fragment>
+        <p>
+          Define a default configuration. Your service asks for it with <code>inject()</code>.
+        </p>
+        <CodePanel
+          slot="code"
+          file="orders.ts"
+          lang="ts"
+          hue="var(--how)"
+          dim="var(--how-dim)"
+          code={ts`
+export const getConfig = () => ({
+  apiUrl: '/api',
+});
+
+export function getOrdersApi(
+  config = inject(getConfig)
+) {
+  return {
+    list: () => fetch(config.apiUrl + '/orders'),
+  };
+}
+`}
+        />
+      </Step>
+      <Step number={2}>
+        <Fragment slot="title">Customize it for your app</Fragment>
+        <p>
+          Supply your configuration at startup. Hypospray builds the orders API using that value.
+        </p>
+        <CodePanel
+          slot="code"
+          file="main.ts"
+          lang="ts"
+          hue="var(--how)"
+          dim="var(--how-dim)"
+          code={ts`
+const app = createInjector({
+  providers: [
+    provideValue(getConfig, {
+      apiUrl: 'https://example.com/api',
+    }),
+  ],
+});
+
+const orders = app.get(getOrdersApi);
+`}
+        />
+      </Step>
+      <Step number={3}>
+        <Fragment slot="title">Mock the API in a test</Fragment>
+        <p>Your code is testable out of the box, and common sources of flakiness are gone.</p>
+        <CodePanel
+          slot="code"
+          file="orders.test.ts"
+          lang="ts"
+          hue="var(--how)"
+          dim="var(--how-dim)"
+          code={ts`
+const fakeOrders = {
+  list: async () => Response.json([]),
+};
+
+const testApp = createInjector({
+  providers: [
+    provideValue(getOrdersApi, fakeOrders),
+  ],
+});
+
+const orders = testApp.get(getOrdersApi);
+expect(await (await orders.list()).json()).toEqual([]);
+`}
+        />
+      </Step>
+    </ol>
+  </Section>
+
+  <Section id="features" name="Features" hue="var(--uses)" dim="var(--uses-dim)" last>
+    <h2>Fits the way you already write TypeScript.</h2>
+    <ul class="platforms" aria-label="Works with">
+      {platforms.map((name) => (
+        <li>{name}</li>
+      ))}
+    </ul>
+    <p class="platforms-caption">
+      Adapters for the frameworks you already use, and a core that works with plain TypeScript or
+      JavaScript.
+    </p>
+
+    <div class="features">
+      <Feature>
+        <Fragment slot="title">Skip the manual wiring</Fragment>
+        <p>
+          Dependencies are built automatically when needed, so adding a service doesn’t mean wiring
+          it up by hand.
+        </p>
+      </Feature>
+      <Feature>
+        <Fragment slot="title">Give each feature its own configuration</Fragment>
+        <p>
+          Customize a search page or another part of your app while keeping shared defaults
+          everywhere else.
+        </p>
+      </Feature>
+      <Feature>
+        <Fragment slot="title">Run different implementations side by side</Fragment>
+        <p>
+          Let two parts of the same page use different clients or services without interfering with
+          each other.
+        </p>
+      </Feature>
+      <Feature>
+        <Fragment slot="title">See where dependency resolution went wrong</Fragment>
+        <p>
+          Get useful context when a dependency can’t be built, making failures easier to track down.
+        </p>
+      </Feature>
+    </div>
+
+    <div class="cta">
+      <div>
+        <p class="cta-title">Ready when you are.</p>
+        <p>Read the guide, or go straight to the API.</p>
+      </div>
+      <div class="cta-actions">
+        <Button href={guide}>Get started</Button>
+        <Button href={api} variant="secondary" hue="var(--why)">
+          API reference
+        </Button>
+        <Button href={github} variant="secondary" hue="var(--uses)">
+          GitHub
+        </Button>
+      </div>
+    </div>
+    <footer class="footer">
+      <span>MIT License</span>
+      <span>© 2026 Leigh Caplan</span>
+      <span>Stardate {stardate(new Date())}</span>
+    </footer>
+  </Section>
+
+  <Dock slot="dock" />
+</Landing>
+
+<script>
+  const hero = document.querySelector<HTMLElement>('.hero');
+  const visual = hero?.querySelector<HTMLElement>('.hero-visual');
+
+  if (hero && visual) {
+    const updateFade = () => {
+      // Measure the text itself, rather than its full-width block, as lines rewrap.
+      let textRight = hero.getBoundingClientRect().left;
+      for (const element of hero.querySelectorAll('.hero-copy h1, .hero-copy p')) {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        for (const rect of range.getClientRects()) {
+          textRight = Math.max(textRight, rect.right);
+        }
+      }
+      const edge = textRight - visual.getBoundingClientRect().left;
+      visual.style.setProperty('--copy-edge', `${edge}px`);
+    };
+
+    const observer = new ResizeObserver(updateFade);
+    observer.observe(hero);
+    observer.observe(visual);
+    void document.fonts.ready.then(updateFade);
+    updateFade();
+  }
+</script>
+
+<style>
+  .hdr-spacer {
+    position: relative;
+    height: 184px;
+  }
+
+  /* Compact once content has risen to the compact header's bottom edge (86px), so the morph never leaves a gap. */
+  [data-header-sentinel] {
+    position: absolute;
+    top: calc(184px - 86px);
+    width: 1px;
+    height: 1px;
+  }
+
+  :global(main section[id]) {
+    scroll-margin-top: 86px;
+  }
+
+  @media (600px <= width < 1050px) {
+    .hdr-spacer {
+      height: 92px;
+    }
+  }
+
+  @media (width < 600px) {
+    .hdr-spacer {
+      height: 70px;
+    }
+
+    [data-header-sentinel] {
+      top: calc(70px - 46px);
+    }
+
+    :global(main section[id]) {
+      scroll-margin-top: 46px;
+    }
+
+    :global(body) {
+      padding-bottom: 110px;
+    }
+  }
+
+  /* Include headings and slotted copy inside the landing-page components. */
+  :global(main :is(h1, h2, h3)),
+  .cta-title {
+    text-wrap: balance;
+  }
+
+  :global(main p) {
+    text-wrap: pretty;
+  }
+
+  h1,
+  h2,
+  .cta-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  /* Antonio's capitals carry ~0.064em of left bearing; pull it back so the ink sits on the content edge, under the title's. */
+  h1 {
+    font-size: 64px;
+    line-height: 1;
+    margin-left: -0.064em;
+  }
+
+  h2 {
+    max-width: 22ch;
+    font-size: 44px;
+    line-height: 1.05;
+    margin-bottom: 20px;
+  }
+
+  .lede {
+    max-width: 36ch;
+    margin: 24px 0 32px;
+    font-size: 21px;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+
+  .lede.wide {
+    max-width: 60ch;
+    margin-top: 0;
+    text-wrap: pretty;
+  }
+
+  p {
+    font-size: 18px;
+    line-height: 1.5;
+  }
+
+  p :global(code),
+  .lede code {
+    font-family: var(--font-code);
+    font-size: 0.85em;
+    color: var(--docs);
+  }
+
+  .hero {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'copy' 'actions';
+    gap: 32px;
+    min-height: clamp(360px, 32vw, 440px);
+    align-items: center;
+  }
+
+  .hero::before {
+    position: absolute;
+    inset: -24px -24px -110px 0;
+    z-index: -2;
+
+    /* Composite opaque lines first, then fade the entire grid once. */
+    background-image:
+      linear-gradient(to right, var(--text) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--text) 1px, transparent 1px);
+    opacity: 0.12;
+    background-size: 30px 30px;
+    mask-image: linear-gradient(to bottom, black 35%, rgb(0 0 0 / 60%) 65%, transparent);
+    pointer-events: none;
+    content: '';
+  }
+
+  .hero-copy {
+    grid-area: copy;
+    align-self: end;
+    max-width: 60%;
+  }
+
+  .hero-visual {
+    position: absolute;
+    inset: -16px -24px -16px auto;
+    z-index: -1;
+    width: min(60vw, 760px);
+    min-width: 0;
+    pointer-events: none;
+    mask-image: linear-gradient(
+      to right,
+      rgb(0 0 0 / 6%),
+      rgb(0 0 0 / 8%) max(0px, calc(var(--copy-edge, 60%) - 100px)),
+      rgb(0 0 0 / 12%) max(0px, calc(var(--copy-edge, 60%) - 30px)),
+      rgb(0 0 0 / 35%) calc(var(--copy-edge, 60%) + 60px),
+      rgb(0 0 0 / 65%) calc(var(--copy-edge, 60%) + 160px)
+    );
+  }
+
+  .hero .actions {
+    grid-area: actions;
+    align-self: start;
+  }
+
+  .hero h1 {
+    max-width: 22ch;
+  }
+
+  .hero .lede {
+    margin-bottom: 0;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .cases {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 32px;
+    margin: 32px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .more {
+    margin: 56px 0 0;
+  }
+
+  .more a {
+    color: var(--text);
+    text-decoration-color: var(--hue);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+
+  .steps {
+    display: grid;
+    gap: 40px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .platforms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .platforms li {
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: var(--dim);
+    color: var(--hue);
+    font-family: var(--font-display);
+    font-size: 16px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .platforms-caption {
+    margin: 16px 0 56px;
+    color: var(--text-muted);
+  }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 32px;
+  }
+
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-top: 96px;
+  }
+
+  .cta-title {
+    font-size: 36px;
+  }
+
+  .cta p {
+    margin: 4px 0 0;
+  }
+
+  .cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-top: 48px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  @media (width < 1050px) {
+    .hero {
+      min-height: 0;
+    }
+
+    .hero::before {
+      right: -8px;
+    }
+
+    .hero-copy {
+      max-width: none;
+    }
+
+    .hero-visual {
+      right: -8px;
+      width: min(70vw, 620px);
+    }
+
+    .cases {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (width < 600px) {
+    .hero::before {
+      right: 0;
+      bottom: -64px;
+    }
+
+    .hero-visual {
+      right: 0;
+      width: 85vw;
+    }
+
+    h1 {
+      font-size: 44px;
+    }
+
+    h2 {
+      font-size: 32px;
+    }
+  }
+</style>

@@ -19,7 +19,8 @@
   },
   "ignorePatterns": ["dist", "coverage"],
   "rules": {
-    "vitest/require-mock-type-parameters": "off"
+    "vitest/require-mock-type-parameters": "off",
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }]
   },
   "overrides": [
     {

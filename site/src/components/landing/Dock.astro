@@ -1,0 +1,136 @@
+---
+import { withBase } from '../../lib/url';
+
+const items = [
+  { href: '#why', section: 'why', hue: 'var(--why)', label: 'WHY' },
+  { href: '#how', section: 'how', hue: 'var(--how)', label: 'HOW' },
+  { href: '#features', section: 'features', hue: 'var(--uses)', label: 'FEATURES' },
+  { href: withBase('/docs/'), hue: 'var(--docs)', label: 'DOCS' },
+];
+---
+
+<nav class="dock" aria-label="Sections">
+  <button class="dock-corner" type="button" aria-label="Back to top" data-back-to-top tabindex="-1">
+    <svg viewBox="0 0 60 56" width="60" height="56" aria-hidden="true">
+      <path
+        d="M38,45 L38,25 M31,32 L38,25 L45,32"
+        fill="none"
+        stroke="var(--bg)"
+        stroke-width="3"
+        stroke-linecap="square"
+      ></path>
+    </svg>
+  </button>
+  {items.map((item) => (
+    <a
+      class="dock-btn"
+      href={item.href}
+      data-nav-section={item.section}
+      style={`--hue: ${item.hue}`}
+    >
+      <span>{item.label}</span>
+    </a>
+  ))}
+</nav>
+
+<style>
+  .dock {
+    display: none;
+  }
+
+  @media (width < 600px) {
+    .dock {
+      position: fixed;
+      inset: auto 8px 0;
+      z-index: 50;
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      padding-bottom: max(22px, env(safe-area-inset-bottom));
+      background: var(--bg);
+    }
+  }
+
+  /* Corner: 14px post from above, 44px bar, outer curve bottom-left. */
+  .dock-corner {
+    position: relative;
+    flex: none;
+    width: 60px;
+    height: 56px;
+    padding: 0;
+    border: 0;
+    background: var(--frame);
+    border-end-start-radius: 44px;
+    cursor: pointer;
+  }
+
+  .dock-corner::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 0;
+    width: 46px;
+    height: 12px;
+    background: var(--bg);
+    border-end-start-radius: 12px;
+  }
+
+  .dock-corner svg {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity var(--motion);
+  }
+
+  :global(body:has(.lcars-header[data-compact])) .dock-corner svg {
+    opacity: 1;
+  }
+
+  .dock-corner:focus-visible,
+  .dock-btn:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+
+  .dock-btn {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    height: 44px;
+    padding: 0 7px 5px;
+    background: var(--hue);
+    color: var(--bg);
+    font-family: var(--font-display);
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    transition:
+      height var(--motion),
+      font-size var(--motion);
+  }
+
+  .dock-btn[aria-current] {
+    height: 60px;
+    font-size: 17px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dock-btn,
+    .dock-corner svg {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  const corner = document.querySelector<HTMLButtonElement>('[data-back-to-top]');
+  const header = document.querySelector('[data-lcars-header]');
+  if (corner && header) {
+    corner.addEventListener('click', () => window.scrollTo({ top: 0 }));
+    // Only focusable when the arrow is visible.
+    new MutationObserver(() => {
+      corner.tabIndex = header.hasAttribute('data-compact') ? 0 : -1;
+    }).observe(header, { attributes: true, attributeFilter: ['data-compact'] });
+  }
+</script>

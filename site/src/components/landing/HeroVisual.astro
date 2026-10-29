@@ -1,0 +1,41 @@
+---
+import { Image } from 'astro:assets';
+
+import hypospray from '../../assets/hypospray-solo@3x.png';
+---
+
+<div class="schematic" aria-hidden="true">
+  <div class="grid">
+    <Image
+      src={hypospray}
+      alt=""
+      widths={[320, 480, 640, 960, 1280]}
+      sizes="(min-width: 1050px) 40vw, (min-width: 600px) 65vw, 85vw"
+      format="webp"
+      loading="eager"
+      fetchpriority="high"
+    />
+  </div>
+</div>
+
+<style>
+  .schematic {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .grid {
+    position: absolute;
+    inset: 0;
+  }
+
+  .grid :global(img) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: left center;
+    transform: scaleX(-1);
+  }
+</style>

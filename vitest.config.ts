@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 // `pnpm test` at the root runs every package's suite in one reporter.
 export default defineConfig({
   test: {
-    projects: ['packages/*'],
+    projects: ['packages/*', 'site'],
     tags: [{ name: 'regression', description: 'Regression tests' }],
   },
 });

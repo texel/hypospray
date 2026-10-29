@@ -1,0 +1,13 @@
+---
+import Default from '@astrojs/starlight/components/Head.astro';
+import { Font } from 'astro:assets';
+
+import { withBase } from '../../lib/url';
+---
+
+<Default />
+<link rel="icon" href={withBase('/favicon.png?v=2')} type="image/png" sizes="32x32" />
+<link rel="icon" href={withBase('/favicon.svg?v=2')} type="image/svg+xml" sizes="any" />
+<Font cssVariable="--font-antonio" preload={[{ weight: 700 }]} />
+<Font cssVariable="--font-barlow" />
+<Font cssVariable="--font-jetbrains" />

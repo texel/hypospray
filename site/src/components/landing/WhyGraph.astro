@@ -1,0 +1,418 @@
+---
+/**
+ * The Why section's dependency graph: services on top, components below, arrows pointing at what
+ * each one depends on. `state` picks which annotations show; changing `data-state` on the SVG
+ * switches between them with a fade.
+ */
+export type GraphState = 'imports' | 'mocks' | 'wiring' | 'inject' | 'override';
+
+interface Props {
+  /** Prefixes the arrowhead marker ids, so each copy on the page needs its own. */
+  id: string;
+  state: GraphState;
+  /** Read out in place of the drawing. Omit to hide it from assistive tech (e.g. a duplicate). */
+  label?: string;
+}
+const { id, state, label } = Astro.props;
+
+const H = 36;
+interface Node {
+  x: number;
+  y: number;
+  w: number;
+  text: string;
+  component?: boolean;
+  /** States in which the node is lit (in use), ghosted (never built) or replaced by a mock. */
+  lit?: string;
+  ghost?: string;
+}
+const nodes: Record<string, Node> = {
+  config: { x: 220, y: 30, w: 120, text: 'Config', lit: 'imports wiring inject override' },
+  api: { x: 220, y: 110, w: 150, text: 'Subspace API', lit: 'imports wiring inject override' },
+  log: { x: 75, y: 200, w: 124, text: "Captain's log", lit: 'imports wiring inject override' },
+  crew: { x: 225, y: 200, w: 110, text: 'Crew', lit: 'imports wiring inject' },
+  replicator: {
+    x: 362,
+    y: 200,
+    w: 112,
+    text: 'Replicator',
+    lit: 'wiring',
+    ghost: 'inject override',
+  },
+  bridge: {
+    x: 140,
+    y: 300,
+    w: 120,
+    text: '<Bridge>',
+    component: true,
+    lit: 'imports wiring inject override',
+  },
+  quarters: {
+    x: 300,
+    y: 300,
+    w: 120,
+    text: '<Quarters>',
+    component: true,
+    lit: 'wiring',
+    ghost: 'inject override',
+  },
+};
+
+interface Edge {
+  from: [number, number];
+  to: [number, number];
+  hot?: string;
+  /** Carries the mock (periwinkle) or misses it (orange). */
+  mock?: string;
+  miss?: string;
+  /** States in which it leads to something never built. */
+  ghost?: string;
+}
+const closure = 'imports inject override';
+const edges: Edge[] = [
+  { from: [220, 92], to: [220, 50], hot: closure },
+  { from: [225, 182], to: [222, 130], hot: closure },
+  { from: [95, 182], to: [168, 130], hot: closure },
+  { from: [137, 200], to: [168, 200], hot: 'imports inject', mock: 'mocks override' },
+  { from: [358, 182], to: [282, 40], ghost: 'inject override' },
+  { from: [122, 282], to: [88, 220], hot: closure },
+  { from: [158, 282], to: [205, 220], hot: 'imports inject', mock: 'mocks override' },
+  { from: [282, 282], to: [245, 220], miss: 'mocks', ghost: 'inject override' },
+  { from: [318, 282], to: [352, 220], ghost: 'inject override' },
+];
+
+const notes: Record<GraphState, string> = {
+  imports: 'import { Bridge } brings everything behind it',
+  mocks: "vi.mock('./crew') misses '../crew'",
+  wiring: 'Built by hand, in order, all at startup',
+  inject: 'Ask for <Bridge>: only what it needs is built',
+  override: 'Provide a mock crew: everyone who asks gets it',
+};
+const order = ['config', 'api', 'crew', 'log', 'replicator'];
+const uid = id;
+---
+
+<svg
+  class="graph"
+  data-state={state}
+  viewBox="0 0 440 390"
+  xmlns="http://www.w3.org/2000/svg"
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : 'true'}
+>
+  <defs>
+    {['tip', 'tip-hot', 'tip-mock', 'tip-miss'].map((kind) => (
+      <marker
+        id={`${uid}-${kind}`}
+        class:list={['tip', kind]}
+        viewBox="0 0 8 8"
+        refX="8"
+        refY="4"
+        markerWidth="8"
+        markerHeight="8"
+        markerUnits="userSpaceOnUse"
+        orient="auto"
+      >
+        <path d="M0,0 L8,4 L0,8 z" />
+      </marker>
+    ))}
+  </defs>
+
+  {edges.map((edge) => (
+    <g
+      class="edge"
+      data-hot={edge.hot}
+      data-mock={edge.mock}
+      data-miss={edge.miss}
+      data-ghost={edge.ghost}
+    >
+      {['tip', 'tip-hot', 'tip-mock', 'tip-miss'].map((kind) => (
+        <line
+          class={kind}
+          x1={edge.from[0]}
+          y1={edge.from[1]}
+          x2={edge.to[0]}
+          y2={edge.to[1]}
+          marker-end={`url(#${uid}-${kind})`}
+        />
+      ))}
+    </g>
+  ))}
+
+  {Object.entries(nodes).map(([id, node]) => (
+    <g
+      class:list={['node', { component: node.component }]}
+      data-node={id}
+      data-lit={node.lit}
+      data-ghost={node.ghost}
+    >
+      <rect
+        x={node.x - node.w / 2}
+        y={node.y - H / 2}
+        width={node.w}
+        height={H}
+        rx={node.component ? 4 : H / 2}
+      />
+      <text x={node.x} y={node.y}>
+        {node.text}
+      </text>
+    </g>
+  ))}
+
+  {/* mocks: the same crew, reached by two paths, is half mock and half real. */}
+  <g class="extra" data-in="mocks">
+    <path class="half mock" d="M 225,182 H 188 A 18,18 0 0 0 188,218 H 225 Z" />
+    <path class="half miss" d="M 225,182 H 262 A 18,18 0 0 1 262,218 H 225 Z" />
+    <text class="half-label" x="203" y="200">
+      Mock
+    </text>
+    <text class="half-label" x="247" y="200">
+      Real
+    </text>
+    <text class="path mock" x="172" y="256" text-anchor="end">
+      './crew'
+    </text>
+    <text class="path miss" x="270" y="256">
+      '../crew'
+    </text>
+  </g>
+
+  {/* override: the crew everyone asks for is the mock. */}
+  <g class="extra" data-in="override">
+    <rect class="swap" x="170" y="182" width="110" height={H} rx={H / 2} />
+    <text class="swap-label" x="225" y="200">
+      Mock crew
+    </text>
+  </g>
+
+  {/* wiring: the order everything has to be built in. */}
+  <g class="extra" data-in="wiring">
+    {order.map((id, i) => {
+      const node = nodes[id];
+      if (!node) return null;
+      const cx = node.x - node.w / 2 + 4;
+      const cy = node.y - H / 2 - 2;
+      return (
+        <g class="badge">
+          <circle cx={cx} cy={cy} r="10" />
+          <text x={cx} y={cy}>
+            {i + 1}
+          </text>
+        </g>
+      );
+    })}
+  </g>
+
+  {(Object.entries(notes) as [GraphState, string][]).map(([key, text]) => (
+    <text class="note extra" data-in={key} x="220" y="372">
+      {text}
+    </text>
+  ))}
+</svg>
+
+<style>
+  .graph {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .graph * {
+    transition:
+      opacity var(--motion),
+      fill var(--motion),
+      stroke var(--motion);
+  }
+
+  /* Nodes: dim by default, lit when in use, ghosted when never built. */
+  .node rect {
+    fill: var(--dim);
+    stroke: transparent;
+    stroke-width: 1.5;
+  }
+
+  .node text,
+  .badge text,
+  .half-label,
+  .swap-label {
+    font-family: var(--font-display);
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+
+  .node text {
+    fill: var(--hue);
+  }
+
+  .node.component text {
+    text-transform: none;
+    font-family: var(--font-code);
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+
+  .graph[data-state='imports'] [data-lit~='imports'] rect,
+  .graph[data-state='wiring'] [data-lit~='wiring'] rect,
+  .graph[data-state='inject'] [data-lit~='inject'] rect,
+  .graph[data-state='override'] [data-lit~='override'] rect {
+    fill: var(--hue);
+  }
+
+  .graph[data-state='imports'] [data-lit~='imports'] text,
+  .graph[data-state='wiring'] [data-lit~='wiring'] text,
+  .graph[data-state='inject'] [data-lit~='inject'] text,
+  .graph[data-state='override'] [data-lit~='override'] text {
+    fill: var(--bg);
+  }
+
+  .graph[data-state='inject'] [data-ghost~='inject'] rect,
+  .graph[data-state='override'] [data-ghost~='override'] rect {
+    fill: transparent;
+    stroke: var(--text-muted);
+    stroke-dasharray: 4 3;
+  }
+
+  .graph[data-state='inject'] [data-ghost~='inject'] text,
+  .graph[data-state='override'] [data-ghost~='override'] text {
+    fill: var(--text-muted);
+  }
+
+  /*
+   * Edges: each is drawn four times (plain, hot, mock, miss) so the arrowhead can match; the
+   * state shows one of them.
+   */
+  .edge line {
+    stroke-width: 2;
+    opacity: 0;
+  }
+
+  .edge .tip {
+    stroke: var(--text-muted);
+    opacity: 1;
+  }
+
+  .edge .tip-hot {
+    stroke: var(--hue);
+  }
+
+  .edge .tip-mock {
+    stroke: var(--how);
+  }
+
+  .edge .tip-miss {
+    stroke: var(--frame);
+  }
+
+  marker.tip path {
+    fill: var(--text-muted);
+  }
+
+  marker.tip-hot path {
+    fill: var(--hue);
+  }
+
+  marker.tip-mock path {
+    fill: var(--how);
+  }
+
+  marker.tip-miss path {
+    fill: var(--frame);
+  }
+
+  .graph[data-state='imports'] [data-hot~='imports'] .tip,
+  .graph[data-state='inject'] [data-hot~='inject'] .tip,
+  .graph[data-state='override'] [data-hot~='override'] .tip,
+  .graph[data-state='mocks'] [data-mock~='mocks'] .tip,
+  .graph[data-state='override'] [data-mock~='override'] .tip,
+  .graph[data-state='mocks'] [data-miss~='mocks'] .tip {
+    opacity: 0;
+  }
+
+  .graph[data-state='imports'] [data-hot~='imports'] .tip-hot,
+  .graph[data-state='inject'] [data-hot~='inject'] .tip-hot,
+  .graph[data-state='override'] [data-hot~='override'] .tip-hot,
+  .graph[data-state='mocks'] [data-mock~='mocks'] .tip-mock,
+  .graph[data-state='override'] [data-mock~='override'] .tip-mock,
+  .graph[data-state='mocks'] [data-miss~='mocks'] .tip-miss {
+    opacity: 1;
+  }
+
+  .graph[data-state='inject'] .edge[data-ghost~='inject'] line,
+  .graph[data-state='override'] .edge[data-ghost~='override'] line {
+    stroke-dasharray: 4 3;
+  }
+
+  /* Per-state annotations. */
+  .extra {
+    opacity: 0;
+  }
+
+  .graph[data-state='imports'] [data-in='imports'],
+  .graph[data-state='mocks'] [data-in='mocks'],
+  .graph[data-state='wiring'] [data-in='wiring'],
+  .graph[data-state='inject'] [data-in='inject'],
+  .graph[data-state='override'] [data-in='override'] {
+    opacity: 1;
+  }
+
+  .half.mock,
+  .swap {
+    fill: var(--how);
+  }
+
+  .half.miss {
+    fill: var(--frame);
+  }
+
+  .half-label {
+    font-size: 12px;
+    fill: var(--bg);
+  }
+
+  .swap-label {
+    fill: var(--bg);
+  }
+
+  .path {
+    font-family: var(--font-code);
+    font-size: 11px;
+    dominant-baseline: central;
+  }
+
+  .path.mock {
+    fill: var(--how);
+  }
+
+  .path.miss {
+    fill: var(--frame);
+  }
+
+  .badge circle {
+    fill: var(--bg);
+    stroke: var(--hue);
+    stroke-width: 2;
+  }
+
+  .badge text {
+    font-size: 12px;
+    fill: var(--hue);
+  }
+
+  .note {
+    font-family: var(--font-code);
+    font-size: 12px;
+    fill: var(--text-muted);
+    text-anchor: middle;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .graph * {
+      transition: none;
+    }
+  }
+</style>

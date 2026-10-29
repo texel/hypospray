@@ -1,0 +1,30 @@
+<div class="feature">
+  <h3>
+    <slot name="title" />
+  </h3>
+  <div class="body">
+    <slot />
+  </div>
+</div>
+
+<style>
+  .feature {
+    min-width: 0;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: var(--hue);
+  }
+
+  .body :global(p) {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+</style>

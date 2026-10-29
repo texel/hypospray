@@ -1,0 +1,130 @@
+---
+interface Props {
+  href?: string;
+  action?: string;
+  hue: string;
+  label: string;
+  section?: string;
+  current?: 'page' | 'location';
+}
+const { href, action, hue, label, section, current } = Astro.props;
+---
+
+<div class="nav-item" style={`--hue: ${hue}`}>
+  {action ? (
+    <button class="nav-btn" type="button" data-action={action}>
+      <span class="nav-label">{label}</span>
+    </button>
+  ) : (
+    <a class="nav-btn" href={href} data-nav-section={section} aria-current={current}>
+      <span class="nav-label">{label}</span>
+    </a>
+  )}
+  <span class="seg" aria-hidden="true"></span>
+</div>
+
+<style>
+  /* --grow (button toward segment) and --shrink (segment up toward button) are factors, not
+     lengths: 0 at rest, the header's --nav-hover-grow / --nav-hover-shrink on hover, and --grow 1
+     when selected. The lengths are derived from the header geometry, which animates on its own
+     during the morph. Transitioning a derived length (or height/margin) would ease every frame of
+     the morph a second time and lag behind. */
+  .nav-item {
+    --grow: 0;
+    --shrink: 0;
+
+    transition:
+      --grow var(--motion),
+      --shrink var(--motion);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: var(--nav-w, 108px);
+    flex: none;
+
+    /* A selected button grows over its own segment. */
+    &:has(> .nav-btn[aria-current]) {
+      --grow: 1;
+    }
+
+    @media (hover: hover) {
+      &:has(> .nav-btn:hover):not(:has(> .nav-btn[aria-current])) {
+        --grow: var(--nav-hover-grow);
+        --shrink: var(--nav-hover-shrink);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+
+  .nav-btn {
+    display: flex;
+    align-items: flex-start;
+    padding: 0;
+    border: 0;
+    cursor: pointer;
+    justify-content: flex-end;
+    height: calc(var(--hdr-bar) + (var(--hdr-gap) + var(--hdr-butter)) * var(--grow));
+    min-height: 24px;
+    background: var(--hue);
+    color: var(--bg);
+    text-decoration: none;
+    transition: background-color var(--motion);
+    z-index: 1;
+
+    @media (hover: hover) {
+      &:hover {
+        background: color-mix(in oklab, var(--hue), var(--text) 15%);
+      }
+    }
+
+    &:active {
+      background: color-mix(in oklab, var(--hue), var(--text) 25%);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--text);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+
+  .nav-label {
+    display: flex;
+    align-items: flex-end;
+    height: var(--hdr-bar);
+    padding: 0 7px var(--hdr-label-pad);
+    font-family: var(--font-display);
+    font-size: 16px;
+    line-height: 21.5px;
+    letter-spacing: 0.08em;
+  }
+
+  /*
+   * The butter bar is segmented like the buttons: each item's segment is exactly its width, in a
+   * lighter, softer version of the button's hue, roughly as butter is to the frame orange
+   * (OKLCH lightness +0.12 but no lighter than butter's 0.91, chroma ×0.55, hue unchanged).
+   */
+  .seg {
+    /*
+     * Keeps its gap below the growing button and gives up its top to it, so its bottom stays put;
+     * --shrink takes from the bottom instead, so its top stays put.
+     */
+    height: max(
+      0px,
+      var(--hdr-butter) * (1 - var(--shrink)) - (var(--hdr-gap) + var(--hdr-butter)) * var(--grow)
+    );
+    margin-top: var(--hdr-gap);
+    background: oklch(from var(--hue) min(0.91, l + 0.12) calc(c * 0.55) h);
+    transition: opacity var(--motion);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+</style>

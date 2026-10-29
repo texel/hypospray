@@ -23,6 +23,8 @@ Run from the repo root; each also works inside an individual package.
 | ------------------- | -------------------------------------------------------- |
 | `pnpm build`        | Build every package (Vite emits JS, `tsc` emits `.d.ts`) |
 | `pnpm dev`          | Rebuild every package on change                          |
+| `pnpm docs:dev`     | Start the documentation site locally                     |
+| `pnpm docs:preview` | Preview the built documentation site                     |
 | `pnpm test`         | Run all Vitest suites once                               |
 | `pnpm test:watch`   | Vitest in watch mode                                     |
 | `pnpm typecheck`    | Type-check every package without emitting                |

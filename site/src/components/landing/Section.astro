@@ -1,0 +1,95 @@
+---
+interface Props {
+  id: string;
+  name?: string;
+  hue: string;
+  dim: string;
+  last?: boolean;
+}
+const { id, name, hue, dim, last = false } = Astro.props;
+---
+
+<section
+  id={id}
+  class:list={['section', { last, hero: !name }]}
+  style={`--hue: ${hue}; --dim: ${dim}`}
+  aria-labelledby={name ? `${id}-name` : undefined}
+>
+  <div class="segment" aria-hidden="true"></div>
+  <div class="content">
+    {name && (
+      <div class="head">
+        <p class="name" id={`${id}-name`}>
+          {name}
+        </p>
+      </div>
+    )}
+    <slot />
+  </div>
+</section>
+
+<style>
+  .section {
+    display: grid;
+    grid-template-columns: var(--rail-w) 1fr;
+    column-gap: var(--rail-gap);
+    padding-inline: 12px 48px;
+  }
+
+  .segment {
+    background: var(--dim);
+    margin-bottom: 6px;
+  }
+
+  .section:not(.hero) .segment {
+    margin-top: 2px; /* segment top is level with the rule's bottom edge */
+  }
+
+  .content {
+    min-width: 0;
+    padding-bottom: 120px;
+  }
+
+  .last .content {
+    padding-bottom: 64px;
+  }
+
+  .head {
+    border-top: 2px solid var(--rule);
+
+    /*
+     * The spec puts the caps 16px below the segment top. Antonio's line box (line-height 1.2939,
+     * no half-leading) puts the caps (2365 - 1760) / 2048 em = 5.9px below its top at 20px.
+     */
+    padding-top: calc(16px - 20px * 605 / 2048);
+    margin-bottom: 34px;
+  }
+
+  .name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 20px;
+    line-height: 1.2939;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--hue);
+  }
+
+  @media (600px <= width < 1050px) {
+    .section {
+      padding-inline: 12px 24px;
+    }
+  }
+
+  @media (width < 600px) {
+    .section {
+      grid-template-columns: 3px 1fr;
+      column-gap: 63px;
+      padding-inline: 8px 16px;
+    }
+
+    .content {
+      padding-bottom: 72px;
+    }
+  }
+</style>

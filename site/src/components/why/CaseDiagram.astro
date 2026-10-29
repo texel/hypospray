@@ -1,0 +1,370 @@
+---
+import './diagram.css';
+import { BAR, type Code, EAR, highlight } from './code';
+import CodePage from './CodePage.astro';
+import { deps } from './deps';
+import { CH, H, ICON, ICON_STEP, contentWidth, segment } from './text';
+
+/**
+ * One use case, zoomed in: the pieces that ask for a dependency (left), the default they'd get
+ * (ghosted) and what they get instead (right), and under that, the file that makes the swap,
+ * with its code.
+ */
+type Tone = 'purple' | 'blue';
+interface Box {
+  text: string;
+  /** Drawn as a file, with this name in its bottom bar. Without one: a component or a value. */
+  file?: string;
+  component?: boolean;
+}
+interface Props {
+  tone: Tone;
+  consumers: Box[];
+  /** What they'd get by default, ghosted. Leave out when the swap happens in place. */
+  original?: Box;
+  replacement: Box;
+  control: Code;
+  /** The catch (or the lack of one), under the code. */
+  note?: string;
+}
+const { tone, consumers, original, replacement, control, note } = Astro.props as Props;
+
+const RADIUS = 8;
+const GAP = 12;
+const boxH = (box: Box) => (box.file ? H + BAR + 2 : H);
+const boxW = (box: Box) => Math.max(120, Math.round(contentWidth(box.text) + 28));
+
+const top = 20;
+const controlCode = await highlight(control);
+const { w: codeW, h: codeH } = controlCode;
+const tw = Math.max(boxW(replacement), original ? boxW(original) : 0);
+
+// Consumers stacked on the left, around a shared centre line.
+const cw = Math.max(...consumers.map(boxW));
+const cx = 10 + cw / 2;
+const stackH = consumers.reduce((sum, c) => sum + boxH(c), 0) + GAP * (consumers.length - 1);
+const mid = top + Math.max(stackH, original ? 2 * 48 + 24 : 48) / 2;
+let stackY = mid - stackH / 2;
+const placedConsumers = consumers.map((c) => {
+  const h = boxH(c);
+  const node = Object.assign({}, c, { x: cx, y: stackY + h / 2, w: cw, h });
+  stackY += h + GAP;
+  return node;
+});
+
+// The default above the line, the replacement below it (or on it, if there's no default).
+const tx = cx + cw / 2 + 80 + tw / 2;
+const placedOriginal = original && {
+  ...original,
+  x: tx,
+  y: mid - 36,
+  w: tw,
+  h: boxH(original),
+};
+const placedReplacement = {
+  ...replacement,
+  x: tx,
+  y: original ? mid + 36 : mid,
+  w: tw,
+  h: boxH(replacement),
+};
+
+// The file that makes the swap: under the replacement, its arrow pointing up into it.
+const codeTop =
+  Math.max(
+    placedReplacement.y + placedReplacement.h / 2,
+    ...placedConsumers.map((c) => c.y + c.h / 2),
+  ) + 40;
+const codeLeft = Math.max(10, tx - 70);
+const viewWidth = Math.max(tx + tw / 2, codeLeft + codeW) + 10;
+const viewHeight = Math.max(
+  codeTop + codeH + (note ? 30 : 12),
+  ...placedConsumers.map((c) => c.y + c.h / 2 + 12),
+);
+
+type Pt = [number, number];
+const rounded = (pts: Pt[]) => {
+  let d = `M ${pts[0]![0]} ${pts[0]![1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [px, py] = pts[i - 1]!;
+    const [qx, qy] = pts[i]!;
+    const [nx, ny] = pts[i + 1]!;
+    const r = Math.min(RADIUS, Math.hypot(qx - px, qy - py) / 2, Math.hypot(nx - qx, ny - qy) / 2);
+    const a = [qx - Math.sign(qx - px) * r, qy - Math.sign(qy - py) * r];
+    const b = [qx + Math.sign(nx - qx) * r, qy + Math.sign(ny - qy) * r];
+    d += ` L ${a[0]} ${a[1]} Q ${qx} ${qy} ${b[0]} ${b[1]}`;
+  }
+  const last = pts.at(-1)!;
+  return `${d} L ${last[0]} ${last[1]}`;
+};
+/** Out of a consumer's right side, down (or up) a lane, into the target's left side. */
+const edge = (
+  from: (typeof placedConsumers)[number],
+  to: { x: number; y: number; w: number },
+  dy: number,
+  lane: number,
+) => {
+  const start: Pt = [from.x + from.w / 2, from.y + dy];
+  const end: Pt = [to.x - to.w / 2 - 4, to.y];
+  if (Math.abs(start[1] - end[1]) < 1) return rounded([start, end]);
+  return rounded([start, [lane, start[1]], [lane, end[1]], end]);
+};
+const left = tx - tw / 2;
+const uid = Math.random().toString(36).slice(2, 8);
+const nodes = [
+  ...placedConsumers.map((n) => Object.assign({}, n, { mark: undefined as string | undefined })),
+  ...(placedOriginal ? [{ ...placedOriginal, mark: 'ghost' }] : []),
+  { ...placedReplacement, mark: `${tone}-soft` },
+];
+---
+
+<svg
+  class:list={['case', tone]}
+  viewBox={`0 0 ${viewWidth} ${viewHeight}`}
+  style={`--view-width: ${viewWidth}px`}
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <defs>
+    {Object.entries(deps).map(([dep, { icon }]) => (
+      <symbol id={`${uid}-${dep}`} viewBox="0 0 16 16" class="icon" set:html={icon} />
+    ))}
+    {['plain', tone].map((t) => (
+      <marker
+        id={`${uid}-${t}`}
+        class={`tip ${t}`}
+        viewBox="0 0 8 8"
+        refX="4"
+        refY="4"
+        markerWidth="8"
+        markerHeight="8"
+        markerUnits="userSpaceOnUse"
+        orient="auto"
+      >
+        <path d="M0,0 L8,4 L0,8 z" />
+      </marker>
+    ))}
+  </defs>
+
+  {placedOriginal &&
+    placedConsumers.map((c) => (
+      <path
+        class="edge ghost"
+        d={edge(c, placedOriginal, -6, left - 40)}
+        marker-end={`url(#${uid}-plain)`}
+      />
+    ))}
+  {placedConsumers.map((c) => (
+    <path
+      class:list={['edge', tone]}
+      d={edge(c, placedReplacement, original ? 6 : 0, left - 22)}
+      marker-end={`url(#${uid}-${tone})`}
+    />
+  ))}
+  <path
+    class:list={['edge', tone]}
+    d={rounded([
+      [tx, codeTop],
+      [tx, placedReplacement.y + placedReplacement.h / 2 + 4],
+    ])}
+    marker-end={`url(#${uid}-${tone})`}
+  />
+
+  {nodes.map((node) => {
+    const [l, r, t, b] = [
+      node.x - node.w / 2,
+      node.x + node.w / 2,
+      node.y - node.h / 2,
+      node.y + node.h / 2,
+    ];
+    let x = node.x - contentWidth(node.text) / 2;
+    const textY = node.file ? node.y - BAR / 2 : node.y;
+    return (
+      <g class="node" data-mark={node.mark}>
+        {node.file ? (
+          <>
+            <path
+              class="shape page"
+              d={`M ${l} ${t} H ${r - EAR} L ${r} ${t + EAR} V ${b} H ${l} Z`}
+            />
+            <path class="bar" d={`M ${l} ${b - BAR} H ${r} V ${b} H ${l} Z`} />
+            <path class="ear" d={`M ${r - EAR} ${t} V ${t + EAR} H ${r}`} />
+            <text class="file" x={node.x} y={b - BAR / 2}>
+              {node.file}
+            </text>
+          </>
+        ) : (
+          <rect
+            class="shape"
+            x={l}
+            y={t}
+            width={node.w}
+            height={node.h}
+            rx={node.component ? 3 : 15}
+          />
+        )}
+        {segment(node.text).map((seg) => {
+          const at = x;
+          x += 'icon' in seg ? ICON_STEP : seg.text.length * CH;
+          return 'icon' in seg ? (
+            <use
+              class="icon"
+              href={`#${uid}-${seg.icon}`}
+              x={at}
+              y={textY - ICON / 2}
+              width={ICON}
+              height={ICON}
+            />
+          ) : (
+            <text
+              class:list={{ name: node.file || node.component }}
+              x={at}
+              y={textY}
+              textLength={seg.text.length * CH}
+            >
+              {seg.text}
+            </text>
+          );
+        })}
+      </g>
+    );
+  })}
+
+  <CodePage page={controlCode} x={codeLeft} y={codeTop} kind="control" />
+  {note && (
+    <text class:list={['note', tone]} x={codeLeft} y={codeTop + codeH + 18}>
+      {note}
+    </text>
+  )}
+</svg>
+
+<style>
+  .case {
+    display: block;
+    width: min(var(--view-width), 100%);
+    max-width: none;
+    height: auto;
+    margin: 16px 0 8px;
+    overflow: visible;
+    font-family: var(--font-jetbrains), monospace;
+    font-size: 12px;
+  }
+
+  .purple {
+    --tone: var(--d-purple);
+    --soft: var(--d-purple-soft);
+  }
+
+  .blue {
+    --tone: var(--d-blue);
+    --soft: var(--d-blue-soft);
+  }
+
+  [data-mark^='purple'] {
+    --tone: var(--d-purple);
+    --soft: var(--d-purple-soft);
+  }
+
+  [data-mark^='blue'] {
+    --tone: var(--d-blue);
+    --soft: var(--d-blue-soft);
+  }
+
+  .edge {
+    fill: none;
+    stroke: var(--d-line);
+    stroke-width: 1.5;
+  }
+
+  .edge.purple,
+  .edge.blue {
+    stroke: var(--tone);
+    stroke-width: 3;
+  }
+
+  .edge.ghost {
+    opacity: 0.35;
+    stroke-dasharray: 5 3;
+  }
+
+  .tip.plain path {
+    fill: var(--d-line);
+  }
+
+  .tip:not(.plain) path {
+    fill: var(--tone);
+  }
+
+  .node {
+    color: var(--d-ink);
+  }
+
+  .node .shape {
+    fill: var(--d-fill);
+    stroke: var(--d-line);
+  }
+
+  [data-mark$='-soft'] .shape {
+    fill: var(--soft);
+    stroke: var(--tone);
+    stroke-width: 2;
+  }
+
+  /* A page: its outline a touch heavier than a component's, its fold a touch lighter. */
+  .page {
+    stroke-width: 1.25;
+  }
+
+  [data-mark='ghost'] .shape {
+    fill: none;
+    stroke-dasharray: 4 3;
+  }
+
+  [data-mark='ghost'] {
+    color: var(--d-dim);
+  }
+
+  .node text {
+    transform: translateY(0.36em);
+    white-space: pre;
+    fill: currentcolor;
+  }
+
+  .file {
+    opacity: 0.75;
+    font-size: 10px;
+    text-anchor: middle;
+  }
+
+  .bar {
+    fill: var(--d-shade);
+  }
+
+  .ear {
+    fill: none;
+    stroke: var(--d-line);
+    stroke-width: 0.75;
+  }
+
+  [data-mark$='-soft'] .ear {
+    stroke: var(--tone);
+    stroke-width: 1;
+  }
+
+  .node text.name {
+    font-weight: 600;
+  }
+
+  .icon {
+    fill: none;
+    stroke: currentcolor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .note {
+    font-size: 11px;
+    font-style: italic;
+    fill: var(--tone);
+  }
+</style>

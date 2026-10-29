@@ -1,0 +1,8 @@
+---
+// Dark only: always dark, and a no-op picker API for anything that still calls it.
+---
+
+<script is:inline>
+  document.documentElement.dataset.theme = 'dark';
+  window.StarlightThemeProvider = { updatePickers() {} };
+</script>

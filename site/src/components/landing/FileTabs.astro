@@ -1,0 +1,137 @@
+---
+import CodePanel from './CodePanel.astro';
+
+interface File {
+  name: string;
+  code: string;
+  region?: string;
+}
+interface Props {
+  /** Unique on the page; prefixes the tab and panel ids. */
+  id: string;
+  /** Names the tab set for screen readers, and labels the title bar when shown. */
+  title: string;
+  /** Hide the title bar, e.g. when an outer tab already names this set. */
+  hideTitle?: boolean;
+  files: File[];
+  hue?: string;
+  dim?: string;
+}
+const {
+  id,
+  title,
+  hideTitle = false,
+  files,
+  hue = 'var(--frame)',
+  dim = 'var(--hero-dim)',
+} = Astro.props;
+---
+
+<div class="file-tabs" style={`--hue: ${hue}; --dim: ${dim}`} data-file-tabs>
+  {!hideTitle && <p class="title">{title}</p>}
+  <div class="tablist" role="tablist" aria-label={title}>
+    {files.map((file, i) => (
+      <button
+        class="tab"
+        data-file={file.name}
+        type="button"
+        role="tab"
+        id={`${id}-tab-${i}`}
+        aria-controls={`${id}-panel-${i}`}
+        aria-selected={i === 0 ? 'true' : 'false'}
+        tabindex={i === 0 ? 0 : -1}
+      >
+        {file.name}
+      </button>
+    ))}
+  </div>
+  {files.map((file, i) => (
+    <div
+      role="tabpanel"
+      id={`${id}-panel-${i}`}
+      aria-labelledby={`${id}-tab-${i}`}
+      hidden={i !== 0}
+    >
+      <CodePanel code={file.code} region={file.region} hue={hue} dim={dim} />
+    </div>
+  ))}
+</div>
+
+<style>
+  .file-tabs {
+    min-width: 0;
+    background: var(--panel);
+  }
+
+  .title {
+    display: flex;
+    align-items: center;
+    height: 28px;
+    margin: 0;
+    padding-inline: 8px;
+    background: var(--dim);
+    font-family: var(--font-display);
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hue);
+  }
+
+  .tablist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 8px 0;
+  }
+
+  .tab {
+    height: 26px;
+    padding: 0 10px;
+    border: 0;
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--dim);
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition:
+      background-color var(--motion),
+      color var(--motion);
+  }
+
+  .tab[aria-selected='true'] {
+    background: var(--hue);
+    box-shadow: none;
+    color: var(--bg);
+  }
+
+  @media (hover: hover) {
+    .tab:hover:not([aria-selected='true']) {
+      background: var(--dim);
+      color: var(--text);
+    }
+  }
+
+  .tab:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tab {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { wireTabs } from '../../lib/tabs';
+
+  for (const tablist of document.querySelectorAll<HTMLElement>(
+    '[data-file-tabs] > [role="tablist"]',
+  )) {
+    wireTabs(tablist);
+  }
+</script>

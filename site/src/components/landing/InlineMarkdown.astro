@@ -1,0 +1,28 @@
+---
+import { marked } from 'marked';
+
+/**
+ * Renders a string as inline Markdown (`**bold**`, `*italic*`, `` `code` ``, `[links](…)`), with
+ * each newline as a `<br>`. For short copy that already sits inside a heading or paragraph.
+ */
+interface Props {
+  text: string;
+}
+const html = marked.parseInline(Astro.props.text, { async: false, breaks: true });
+---
+
+<span class="md" set:html={html} />
+
+<style>
+  .md :global(code) {
+    font-family: var(--font-code);
+    font-size: 0.85em;
+    color: var(--docs);
+  }
+
+  .md :global(a) {
+    color: inherit;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+</style>

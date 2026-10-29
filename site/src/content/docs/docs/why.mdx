@@ -1,0 +1,225 @@
+---
+title: Config and mocking are a pain. We can do better.
+description: Why Hypospray exists, from the service graph your app already has to configuration, swaps and tests without import mocking.
+---
+
+import CaseDiagram from '../../../components/why/CaseDiagram.astro';
+import Dep from '../../../components/why/Dep.astro';
+import InjectDiagram from '../../../components/why/InjectDiagram.astro';
+import Step from '../../../components/why/Step.astro';
+import Stepper from '../../../components/why/Stepper.astro';
+import TreeDiagram from '../../../components/why/TreeDiagram.astro';
+import WhyPage from '../../../components/why/WhyPage.astro';
+import * as d from '../../../components/why/why-diagrams';
+
+<WhyPage />
+
+## 1. Your app runs on a graph of services
+
+A lot of app functionality lives in services: one to fetch orders, another to check who's signed in or to log an error.
+Services lean on each other. Three API clients share one HTTP client, and the HTTP client and the
+logger both read config.
+
+<Stepper diagrams={d.wiring}>
+<Step diagram={d.wiring[0]}>
+
+Here, we see components on the left, directly importing services, shown on the right.
+
+</Step>
+<Step diagram={d.wiring[1]}>
+
+The easiest way to use a service is by importing it from a file. `OrdersTable` imports the orders
+API, which imports the HTTP client, which imports config.
+
+</Step>
+</Stepper>
+
+```ts
+// http.ts
+import { config } from './config';
+export const http = createFetchClient(config.apiUrl);
+
+// orders.ts
+import { http } from './http';
+export const orders = { list: () => http.get('/orders') };
+```
+
+## 2. Imports are simple, but not flexible
+
+Before long, every real-world app needs to change something its service graph.
+When that happens, file imports go from simple to cumbersome.
+
+Here are three common cases:
+
+### <Dep name="config" /> ① Configuration at runtime
+
+The API URL differs per environment. Environment variables can help here,
+but they force all configuration through a string, are difficult to discover, and don't automatically give
+you fallbacks or defaults.
+
+<CaseDiagram {...d.importCases.config} />
+
+### <Dep name="http" /> ② A different implementation
+
+On the server, we might want to use a different HTTP client instead of `fetch`.
+Simple config changes won't work here, so we need to swap out our source file using the build system.
+
+<CaseDiagram {...d.importCases.swap} />
+
+### <Dep name="orders" /> ③ Tests
+
+Even if you don't need as much flexibility while your app is running, you probably don't want
+to hit actual remote APIs in your tests.
+
+Modern test frameworks allow you to [mock file imports](https://vitest.dev/guide/mocking), but it's painful and error-prone.
+
+<CaseDiagram {...d.importCases.test} />
+
+## 3. Drill, baby, drill?
+
+{/* These 3 paragraphs should be a visual beat, and we should see a transformation from "reaching out for deps" to
+"receiving deps from above */}
+Of course you're already asking, why not just pass these dependencies into the component tree?
+That way, we don't have to override any `import` statements, and we can pick a custom HTTP client
+when the app is booting.
+
+This is a pretty good idea. We can even take it a step further- our services can also take *their* dependencies
+as arguments instead of importing and using concrete instances.
+
+We should stop for a moment and congratulate ourselves... we just invented [Dependency Injection](https://en.wikipedia.org/wiki/Dependency_injection)!
+We also traded our existing problems for fun new problems.
+
+<Stepper diagrams={[d.building]}>
+<Step diagram={d.building}>
+
+All of those function arguments ultimately have to come from somewhere, and that means they accumulate
+at the entry point of your app.
+
+In a typical frontend app, this ends up being the top of your
+component tree, where each service needs to be built in the correct order.
+
+
+</Step>
+</Stepper>
+
+<Stepper diagrams={d.drilling}>
+<Step diagram={d.drilling[0]}>
+
+After the services are built, they need to be passed down
+into child and grandchild components.
+
+This is affectionally known as ["prop drilling,"](https://kentcdodds.com/blog/prop-drilling) and it's not nearly as fun as it sounds. Not only is it
+bad for the environment, it means that changing components deep in your app can affect the
+arguments of components all the way up to the app root.
+
+</Step>
+<Step diagram={d.drilling[1]}>
+
+Look what happens when we add error logging to `RevenueChart`. The root already builds a logger, but
+the only way down is through `App` and `Dashboard`. We need to touch three files to make a change in just one.
+
+</Step>
+</Stepper>
+
+## 4. `<Context>`: not really a solution.
+
+Most frameworks have a way to avoid prop drilling. React has `createContext`, Svelte has
+`setContext`, and Vue has `provide`. A component near the top can stuff values into a global object,
+and any component below can reach up and ask for it by name instead of threading it through the tree.
+
+That removes the mechanics of drilling, but the dependencies are still there, just out of
+sight: you can't tell from `OrdersTable`'s signature what it needs, or check that it's provided in the context.
+The root still builds every dependency, and what's worse, context only works inside
+components, so your services still have to resort to "prop drilling" (or as we used to call it,
+"passing too many arguments").
+
+<TreeDiagram {...d.context} />
+
+Since context objects are usually untyped, catching errors at compile time is also hard.
+Forget to add an `analytics` service, and `RevenueChart` still compiles.
+You only find out when the app renders and throws a runtime error.
+
+<TreeDiagram {...d.contextBroken} />
+
+## 5. There's got to be a better way!
+
+What if we had a way to:
+* *Explicitly* declare dependencies in both components *and* services
+* *Automatically* wire together our services dependency graph
+
+As a bonus, maybe we could come up with a way to:
+* Ensure that dependencies only get created once, when they're needed
+* Provide type-safety for both providers and consumers of dependencies
+* Enable reasonable default values for common configuration
+
+We're not talking about alien technology, this is something you can use today, on Earth (or in space).
+Hypospray is an [IoC container](https://en.wikipedia.org/wiki/Inversion_of_control), and it's built to alleviate
+all the issues we've talked about so far, while remaining simple to use and understand.
+
+You provide dependencies with plain functions, ask for them with `inject()`, and Hypospray handles the rest.
+
+<Stepper diagrams={d.lazy}>
+<Step diagram={d.lazy[0]}>
+
+`main.tsx` creates an injector, then renders `App` inside it with `injector.run`. Nothing has
+asked for a service yet, so the injector is empty.
+
+</Step>
+<Step diagram={d.lazy[1]}>
+
+`App` renders `Header`, and `UserMenu` needs an auth client. The injector automatically
+builds only what it needs to satisfy the dependencies.
+
+</Step>
+<Step diagram={d.lazy[2]}>
+
+`Dashboard` renders, and `OrdersTable` asks for the orders API. Only the orders API is new: the HTTP
+client is already built, so it gets the same one.
+
+</Step>
+<Step diagram={d.lazy[3]}>
+
+`RevenueChart` needs an analytics service, which needs a logger as well as the HTTP client.
+Hypospray builds a logger, and uses the existing HTTP client and config.
+
+</Step>
+</Stepper>
+
+## 6. Flexibility, and simplicity
+
+Now we can revisit the [pain points from before](#2-imports-are-simple-but-not-flexible), and see how Hypospray solves them.
+
+### <Dep name="config" /> ① Type safe configuration at runtime
+
+<Stepper as={InjectDiagram} diagrams={d.configSteps} gap={180}>
+<Step as={InjectDiagram} diagram={d.configSteps[0]}>
+
+In `config.ts`, we can declare a `Config` type and provide function that returns a reasonable default value.
+
+</Step>
+<Step as={InjectDiagram} diagram={d.configSteps[1]}>
+
+Next, in `main.ts`, we can provide the config from environment variables, and we get type safety automatically.
+
+</Step>
+<Step as={InjectDiagram} diagram={d.configSteps[2]}>
+
+{/* Draft: rewrite me. */}
+Finally, `http.ts` calls `inject(getConfig)` and gets the config that we provided in `main.ts`.
+
+</Step>
+</Stepper>
+
+### <Dep name="http" /> ② A different implementation
+
+In `server.ts`, we can provide a different HTTP client and wrap it with retries.
+Auth, orders and analytics all get this new version without any other build or config changes.
+
+<InjectDiagram {...d.injectCases.swap} />
+
+### <Dep name="orders" /> ③ Tests
+
+In `OrdersTable.test.tsx`, we can provide a fake orders API and keep it isolated per-test.
+Test order dependencies and other flakiness are gone, and the test is easier to read and maintain.
+
+<InjectDiagram {...d.injectCases.test} />

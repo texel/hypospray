@@ -1,0 +1,242 @@
+---
+/**
+ * What the Why docs page (`content/docs/docs/why.mdx`) needs beyond Starlight: the colour key and
+ * service legend at its top, a wide column for the diagrams with the prose kept to a readable
+ * measure, a table of contents that folds away into a rail once you're reading (and comes back
+ * on hover), and links to each step. Put it once, first thing in the page.
+ */
+import './diagram.css';
+import Dep from './Dep.astro';
+import { type Dep as DepName, deps } from './deps';
+
+const names = Object.keys(deps) as DepName[];
+---
+
+<div class="why-key" data-why-page>
+  <p>
+    <span class="swatch purple"></span> hard-wired
+    <span class="swatch orange"></span> carried by hand
+    <span class="swatch blue"></span> Hypospray <span class="swatch red"></span> missing{' '}
+    <span class="swatch green"></span> just added · solid is where a flow starts, soft is what it
+    reaches
+  </p>
+  <p>
+    {names.map((name) => (
+      <span class="legend">
+        <Dep name={name} /> {deps[name].name}
+      </span>
+    ))}
+  </p>
+</div>
+
+<style>
+  .why-key p {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  .why-key .legend {
+    margin-right: 14px;
+    white-space: nowrap;
+  }
+
+  .why-key .swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-left: 8px;
+    vertical-align: -1px;
+  }
+
+  .why-key .swatch.purple {
+    background: var(--d-purple);
+  }
+
+  .why-key .swatch.red {
+    background: var(--d-red);
+  }
+
+  .why-key .swatch.orange {
+    background: var(--d-orange);
+  }
+
+  .why-key .swatch.blue {
+    background: var(--d-blue);
+  }
+
+  .why-key .swatch.green {
+    background: var(--d-green);
+  }
+</style>
+
+<!-- global: page-level overrides of Starlight's layout (content measure, TOC rail), and step anchors the script creates -->
+<style is:global>
+  /* Everything here applies to this page only: the one with the key on it. */
+  :root:has([data-why-page]) {
+    /* Room for the steppers: the steps beside their diagram. Prose stays at Starlight's measure. */
+    --sl-content-width: 68rem;
+    --why-measure: 45rem;
+    --why-rail: 2.75rem;
+  }
+
+  :root:has([data-why-page])
+    .sl-markdown-content
+    > :is(p, ul, ol, blockquote, .sl-heading-wrapper, .expressive-code, .why-key) {
+    max-width: var(--why-measure);
+  }
+
+  /* A stepper straight under a heading sits as far below it as a paragraph would. */
+  .sl-markdown-content .sl-heading-wrapper + .stepper {
+    margin-top: 1rem;
+  }
+
+  .sl-markdown-content .stepper .step > p + p {
+    margin-top: 1rem;
+  }
+
+  /* Links to each step, in the margin, like the headings'. */
+  .sl-markdown-content [data-step] {
+    position: relative;
+  }
+
+  .step-anchor {
+    position: absolute;
+    top: 4px;
+    right: 100%;
+    margin-right: 10px;
+    color: var(--text-muted);
+    line-height: 0;
+    opacity: 0;
+  }
+
+  [data-step]:hover > .step-anchor,
+  .step-anchor:focus {
+    opacity: 1;
+  }
+
+  .step-anchor svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentcolor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /*
+   * The table of contents, given only a rail's worth of the page: the content takes the rest. Open,
+   * it lies over the content's right edge. It's open at the top of the page when there's room for
+   * it beside the prose, folds into the rail once you scroll, and opens again on hover or focus.
+   */
+  @media (width >= 72rem) {
+    /* Over the content it lies on (which comes later, so would paint on top), under the header. */
+    :root:has([data-why-page]) .right-sidebar-container {
+      z-index: var(--sl-z-index-toc);
+      width: var(--why-rail);
+    }
+
+    :root:has([data-why-page])[data-has-sidebar][data-has-toc] .main-pane {
+      --sl-content-margin-inline: 0 auto;
+
+      width: calc(100% - var(--why-rail));
+    }
+
+    :root:has([data-why-page]) .right-sidebar {
+      right: 0;
+      width: var(--sl-sidebar-width);
+      background: var(--sl-color-black);
+      transform: translateX(calc(100% - var(--why-rail)));
+      transition:
+        transform var(--motion),
+        box-shadow var(--motion);
+    }
+
+    :root:has([data-why-page]) .right-sidebar-panel {
+      opacity: 0;
+      transition: opacity var(--motion);
+    }
+
+    /* Folded: the rail says what's in it. */
+    :root:has([data-why-page]) .right-sidebar::before {
+      content: 'On this page';
+      position: absolute;
+      top: calc(var(--sl-nav-height) + 1.5rem);
+      left: calc(var(--why-rail) / 2);
+      color: var(--text-muted);
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      writing-mode: vertical-rl;
+      transform: translateX(-50%);
+      transition: opacity var(--motion);
+    }
+
+    :root:has([data-why-page]) .right-sidebar:is(:hover, :focus-within) {
+      transform: none;
+      box-shadow: -16px 0 32px rgb(0 0 0 / 60%);
+    }
+
+    :root:has([data-why-page]) .right-sidebar:is(:hover, :focus-within) .right-sidebar-panel {
+      opacity: 1;
+    }
+
+    :root:has([data-why-page]) .right-sidebar:is(:hover, :focus-within)::before {
+      opacity: 0;
+    }
+  }
+
+  @media (width >= 90rem) {
+    :root:has([data-why-page]):not([data-toc-folded]) .right-sidebar {
+      transform: none;
+    }
+
+    :root:has([data-why-page]):not([data-toc-folded]) .right-sidebar-panel {
+      opacity: 1;
+    }
+
+    :root:has([data-why-page]):not([data-toc-folded]) .right-sidebar::before {
+      opacity: 0;
+    }
+  }
+</style>
+
+<script>
+  // Fold the table of contents away once the page has scrolled past its opening.
+  const FOLD_AT = 160;
+  const fold = () => document.documentElement.toggleAttribute('data-toc-folded', scrollY > FOLD_AT);
+  addEventListener('scroll', fold, { passive: true });
+  fold();
+
+  /*
+   * Links to each step, named under its section, since step numbers repeat from one to the next.
+   * Headings already have theirs, from Starlight.
+   */
+  const icon =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+  let section = '';
+  const stepsBySection = new Map<string, HTMLElement[]>();
+  for (const el of document.querySelectorAll<HTMLElement>(
+    '.sl-markdown-content h2, .sl-markdown-content [data-step]',
+  )) {
+    if (el.tagName === 'H2') section = el.id;
+    else stepsBySection.set(section, [...(stepsBySection.get(section) ?? []), el]);
+  }
+  for (const [name, steps] of stepsBySection) {
+    steps.forEach((step, i) => {
+      step.id = `${name}--step-${i + 1}`;
+      const a = document.createElement('a');
+      a.href = `#${step.id}`;
+      a.className = 'step-anchor';
+      a.ariaLabel = `Link to step ${i + 1} of ${steps.length}`;
+      a.innerHTML = icon;
+      step.prepend(a);
+    });
+  }
+  // The browser looked for the hash before these ids existed: look again.
+  if (location.hash.includes('--step-')) {
+    document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+  }
+</script>

@@ -1,0 +1,78 @@
+---
+import Search from '@astrojs/starlight/components/Search.astro';
+
+import { withBase } from '../../lib/url';
+import LcarsHeader from '../lcars/Header.astro';
+import NavButton from '../lcars/NavButton.astro';
+
+const path = Astro.url.pathname;
+const guideHref = withBase('/docs/getting-started/');
+const apiHref = withBase('/docs/reference/core/');
+const onGuide = path === guideHref || path === guideHref.replace(/\/$/, '');
+const onApi = path.startsWith(withBase('/docs/reference/'));
+---
+
+<LcarsHeader homeHref={withBase('/')} static>
+  <NavButton action="search" hue="var(--frame)" label="SEARCH" />
+  <NavButton
+    href={guideHref}
+    hue="var(--docs)"
+    label="GUIDE"
+    current={onGuide ? 'page' : undefined}
+  />
+  <NavButton href={apiHref} hue="var(--why)" label="API" current={onApi ? 'page' : undefined} />
+  <NavButton href="https://github.com/texel/hypospray" hue="var(--uses)" label="GITHUB" />
+  <button slot="phone-actions" class="phone-search" type="button" data-action="search">
+    SEARCH
+  </button>
+</LcarsHeader>
+<div class="search-host">
+  <Search />
+</div>
+
+<script>
+  // Proxies for Starlight's (hidden) search trigger. Stop the click here: Starlight closes the
+  // dialog on any window click outside it, and this click would otherwise reach window after opening.
+  const trigger = document.querySelector<HTMLButtonElement>('.search-host button[data-open-modal]');
+  for (const proxy of document.querySelectorAll('[data-action="search"]')) {
+    proxy.addEventListener('click', (event) => {
+      event.stopPropagation();
+      trigger?.click();
+    });
+  }
+</script>
+
+<style>
+  /* Keep the dialog; hide only Starlight's own trigger. */
+  .search-host :global(button[data-open-modal]) {
+    display: none !important;
+  }
+
+  /* GUIDE / API / GITHUB live in the mobile menu below Starlight's 50rem breakpoint. */
+  @media (width < 50rem) {
+    :global(.lcars-header .rail > .nav-item:not(:has([data-action='search']))) {
+      display: none;
+    }
+
+    :global(.lcars-header .rail) {
+      margin-inline-end: calc(var(--sl-menu-button-size) + 1rem);
+    }
+  }
+
+  :global(.lcars-header) .phone-search {
+    margin-inline-end: calc(var(--sl-menu-button-size) + 0.5rem);
+    padding: 0 10px;
+    border: 0;
+    background: transparent;
+    color: var(--bg);
+    font-family: var(--font-display);
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+
+  :global(.lcars-header) .phone-search:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+</style>
