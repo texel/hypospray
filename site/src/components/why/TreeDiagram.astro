@@ -584,7 +584,6 @@ const routePoints = (key: string, d = 0): Pt[] => {
   const [a, b] = key.split('>');
   const from = nodes[a!]!;
   const to = nodes[b!]!;
-  const inset = 12;
   // Injector, a leaf asking for a service: across under its label, along its lane, and in.
   if (outline && 'service' in to && to.service && !from.service) {
     const lane = laneX(a!, graphEdge);

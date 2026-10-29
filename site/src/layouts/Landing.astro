@@ -19,7 +19,8 @@ const { title, description } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
+    <link rel="icon" href={withBase('/favicon.png?v=2')} type="image/png" sizes="32x32" />
+    <link rel="icon" href={withBase('/favicon.svg?v=2')} type="image/svg+xml" sizes="any" />
     <title>{title}</title>
     <Font cssVariable="--font-antonio" preload={[{ weight: 700 }]} />
     <Font cssVariable="--font-barlow" />

@@ -8,6 +8,7 @@ import Case from '../components/landing/Case.astro';
 import CodePanel from '../components/landing/CodePanel.astro';
 import Dock from '../components/landing/Dock.astro';
 import Feature from '../components/landing/Feature.astro';
+import HeroVisual from '../components/landing/HeroVisual.astro';
 import InstallChip from '../components/landing/InstallChip.astro';
 import Section from '../components/landing/Section.astro';
 import Step from '../components/landing/Step.astro';
@@ -58,6 +59,9 @@ const platforms = [
       <div class="hero-copy">
         <h1>Painless dependency injection for TypeScript.</h1>
         <p class="lede">Make your app easier to configure, test, and maintain.</p>
+      </div>
+      <div class="hero-visual">
+        <HeroVisual />
       </div>
       <div class="actions">
         <Button href={guide}>Get started</Button>
@@ -261,6 +265,33 @@ expect(await (await orders.list()).json()).toEqual([]);
   <Dock slot="dock" />
 </Landing>
 
+<script>
+  const hero = document.querySelector<HTMLElement>('.hero');
+  const visual = hero?.querySelector<HTMLElement>('.hero-visual');
+
+  if (hero && visual) {
+    const updateFade = () => {
+      // Measure the text itself, rather than its full-width block, as lines rewrap.
+      let textRight = hero.getBoundingClientRect().left;
+      for (const element of hero.querySelectorAll('.hero-copy h1, .hero-copy p')) {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        for (const rect of range.getClientRects()) {
+          textRight = Math.max(textRight, rect.right);
+        }
+      }
+      const edge = textRight - visual.getBoundingClientRect().left;
+      visual.style.setProperty('--copy-edge', `${edge}px`);
+    };
+
+    const observer = new ResizeObserver(updateFade);
+    observer.observe(hero);
+    observer.observe(visual);
+    void document.fonts.ready.then(updateFade);
+    updateFade();
+  }
+</script>
+
 <style>
   .hdr-spacer {
     position: relative;
@@ -303,6 +334,16 @@ expect(await (await orders.list()).json()).toEqual([]);
     }
   }
 
+  /* Include headings and slotted copy inside the landing-page components. */
+  :global(main :is(h1, h2, h3)),
+  .cta-title {
+    text-wrap: balance;
+  }
+
+  :global(main p) {
+    text-wrap: pretty;
+  }
+
   h1,
   h2,
   .cta-title {
@@ -332,11 +373,13 @@ expect(await (await orders.list()).json()).toEqual([]);
     margin: 24px 0 32px;
     font-size: 21px;
     line-height: 1.5;
+    text-wrap: pretty;
   }
 
   .lede.wide {
     max-width: 60ch;
     margin-top: 0;
+    text-wrap: pretty;
   }
 
   p {
@@ -352,8 +395,58 @@ expect(await (await orders.list()).json()).toEqual([]);
   }
 
   .hero {
+    position: relative;
+    isolation: isolate;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'copy' 'actions';
     gap: 32px;
+    min-height: clamp(360px, 32vw, 440px);
+    align-items: center;
+  }
+
+  .hero::before {
+    position: absolute;
+    inset: -24px -24px -110px 0;
+    z-index: -2;
+
+    /* Composite opaque lines first, then fade the entire grid once. */
+    background-image:
+      linear-gradient(to right, var(--text) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--text) 1px, transparent 1px);
+    opacity: 0.12;
+    background-size: 30px 30px;
+    mask-image: linear-gradient(to bottom, black 35%, rgb(0 0 0 / 60%) 65%, transparent);
+    pointer-events: none;
+    content: '';
+  }
+
+  .hero-copy {
+    grid-area: copy;
+    align-self: end;
+    max-width: 60%;
+  }
+
+  .hero-visual {
+    position: absolute;
+    inset: -16px -24px -16px auto;
+    z-index: -1;
+    width: min(60vw, 760px);
+    min-width: 0;
+    pointer-events: none;
+    mask-image: linear-gradient(
+      to right,
+      rgb(0 0 0 / 6%),
+      rgb(0 0 0 / 8%) max(0px, calc(var(--copy-edge, 60%) - 100px)),
+      rgb(0 0 0 / 12%) max(0px, calc(var(--copy-edge, 60%) - 30px)),
+      rgb(0 0 0 / 35%) calc(var(--copy-edge, 60%) + 60px),
+      rgb(0 0 0 / 65%) calc(var(--copy-edge, 60%) + 160px)
+    );
+  }
+
+  .hero .actions {
+    grid-area: actions;
+    align-self: start;
   }
 
   .hero h1 {
@@ -466,12 +559,39 @@ expect(await (await orders.list()).json()).toEqual([]);
   }
 
   @media (width < 1050px) {
+    .hero {
+      min-height: 0;
+    }
+
+    .hero::before {
+      right: -8px;
+    }
+
+    .hero-copy {
+      max-width: none;
+    }
+
+    .hero-visual {
+      right: -8px;
+      width: min(70vw, 620px);
+    }
+
     .cases {
       grid-template-columns: minmax(0, 1fr);
     }
   }
 
   @media (width < 600px) {
+    .hero::before {
+      right: 0;
+      bottom: -64px;
+    }
+
+    .hero-visual {
+      right: 0;
+      width: 85vw;
+    }
+
     h1 {
       font-size: 44px;
     }

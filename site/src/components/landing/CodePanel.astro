@@ -12,7 +12,14 @@ interface Props {
   hue?: string;
   dim?: string;
 }
-const { code, region, file, lang = 'ts', hue = 'var(--frame)', dim = 'var(--hero-dim)' } = Astro.props;
+const {
+  code,
+  region,
+  file,
+  lang = 'ts',
+  hue = 'var(--frame)',
+  dim = 'var(--hero-dim)',
+} = Astro.props;
 const source = extractRegion(code, region);
 ---
 
