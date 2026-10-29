@@ -88,6 +88,17 @@ export const wiring = [
   ),
 );
 
+/** The homepage's import case: `RevenueChart` imports its way down to the logger. */
+export const importLogger = Object.assign({}, wiring[0], {
+  marks: {
+    RevenueChart: 'purple',
+    AnalyticsApi: 'purple-soft',
+    Logger: 'purple-soft',
+    Config: 'purple-soft',
+  },
+  edges: all(['RevenueChart>AnalyticsApi', 'AnalyticsApi>Logger', 'Logger>Config'], 'purple'),
+});
+
 /** Beat 3: every node takes what its children need; it piles up at the root. */
 export const cascade = {
   labels: {

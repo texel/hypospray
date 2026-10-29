@@ -7,10 +7,12 @@ interface Props {
   code: string;
   region?: string;
   file?: string;
+  /** Defaults to TypeScript. */
+  lang?: string;
   hue?: string;
   dim?: string;
 }
-const { code, region, file, hue = 'var(--frame)', dim = 'var(--hero-dim)' } = Astro.props;
+const { code, region, file, lang = 'ts', hue = 'var(--frame)', dim = 'var(--hero-dim)' } = Astro.props;
 const source = extractRegion(code, region);
 ---
 
@@ -22,7 +24,7 @@ const source = extractRegion(code, region);
     </figcaption>
   )}
   <div class="body">
-    <Code code={source} lang="ts" frame="none" />
+    <Code code={source} lang={lang} frame="none" />
   </div>
 </figure>
 
