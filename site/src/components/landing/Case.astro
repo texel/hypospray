@@ -1,0 +1,70 @@
+<li class="case">
+  <div class="illustration" aria-hidden="true">
+    <slot name="illustration" />
+  </div>
+  <div class="copy">
+    <h3>
+      <slot name="title" />
+    </h3>
+    <slot />
+  </div>
+</li>
+
+<style>
+  .case {
+    min-width: 0;
+  }
+
+  .illustration {
+    display: flex;
+    align-items: center;
+    height: 112px;
+    margin-bottom: 20px;
+    color: var(--text-muted);
+  }
+
+  .illustration :global(svg) {
+    width: 88px;
+    height: 88px;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: var(--hue);
+  }
+
+  .copy :global(p) {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+
+  .copy :global(code) {
+    font-family: var(--font-code);
+    font-size: 0.85em;
+    color: var(--docs);
+  }
+
+  @media (width < 1050px) {
+    .case {
+      display: grid;
+      grid-template-columns: 160px minmax(0, 1fr);
+      gap: 24px;
+    }
+
+    .illustration {
+      margin-bottom: 0;
+    }
+  }
+
+  @media (width < 600px) {
+    .case {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

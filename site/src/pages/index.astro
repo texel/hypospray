@@ -1,103 +1,27 @@
 ---
+import Flask from '../assets/symbols/flask.svg';
+import Sharing from '../assets/symbols/sharing.svg';
+import Sliders from '../assets/symbols/sliders.svg';
+import Swap from '../assets/symbols/swap.svg';
 import Button from '../components/landing/Button.astro';
+import Case from '../components/landing/Case.astro';
 import CodePanel from '../components/landing/CodePanel.astro';
 import Dock from '../components/landing/Dock.astro';
+import Feature from '../components/landing/Feature.astro';
 import InstallChip from '../components/landing/InstallChip.astro';
 import Section from '../components/landing/Section.astro';
+import Step from '../components/landing/Step.astro';
 import Header from '../components/lcars/Header.astro';
 import NavButton from '../components/lcars/NavButton.astro';
 import Landing from '../layouts/Landing.astro';
 import { stardate } from '../lib/stardate';
-import { ts, inlineCode } from '../lib/template-helpers';
+import { ts } from '../lib/template-helpers';
 import { withBase } from '../lib/url';
 
 const guide = withBase('/docs/getting-started/');
 const api = withBase('/docs/reference/core/');
 const why = withBase('/docs/why/');
 const github = 'https://github.com/texel/hypospray';
-
-const cases = [
-  {
-    title: 'Test without mocking imports',
-    body: 'Give each test its own fake dependencies, without rewriting imports or changing your application code.',
-    // A flask with a check mark.
-    icon: 'M27 12h18 M31 12v19L18 52a7 7 0 0 0 6 10h25a7 7 0 0 0 6-10L41 31V12 M25 43h22 M29 52l5 5 10-11',
-  },
-  {
-    title: 'Configure your app in one place',
-    body: 'Provide configuration for components and services without passing it through everything in between.',
-    // Three independently adjustable controls.
-    icon: 'M15 19h17 M42 19h15 M15 36h7 M32 36h25 M15 53h25 M50 53h7 M32 13h10v12H32z M22 30h10v12H22z M40 47h10v12H40z',
-  },
-  {
-    title: 'Change implementations without changing callers',
-    body: 'Switch between real and fake APIs, browser and server clients, or different providers without updating the code that uses them.',
-    // Arrows exchanging two interchangeable blocks.
-    icon: 'M12 29h18v18H12z M42 29h18v18H42z M21 20c8-12 22-12 30 0 M44 19l7 1 1-7 M51 56c-8 12-22 12-30 0 M28 57l-7-1-1 7',
-  },
-  {
-    title: 'Share services without global state',
-    body: 'Reuse the same client across your app, while giving each test or feature its own instance when needed.',
-    // A shared service connected to three separate consumers.
-    icon: 'M28 10h16v16H28z M36 26v13 M15 48V39h42v9 M36 39v9 M8 48h14v14H8z M29 48h14v14H29z M50 48h14v14H50z',
-  },
-];
-
-const steps = [
-  {
-    title: 'Ask for configuration',
-    body: 'Define a default configuration. Your service asks for it with `inject()`.',
-    file: 'orders.ts',
-    code: ts`
-export const getConfig = () => ({
-  apiUrl: '/api',
-});
-
-export function getOrdersApi(
-  config = inject(getConfig)
-) {
-  return {
-    list: () => fetch(config.apiUrl + '/orders'),
-  };
-}
-`,
-  },
-  {
-    title: 'Customize it for your app',
-    body: 'Supply your configuration at startup. Hypospray builds the orders API using that value.',
-    file: 'main.ts',
-    code: ts`
-const app = createInjector({
-  providers: [
-    provideValue(getConfig, {
-      apiUrl: 'https://example.com/api',
-    }),
-  ],
-});
-
-const orders = app.get(getOrdersApi);
-`,
-  },
-  {
-    title: 'Mock the API in a test',
-    body: 'Your code is testable out of the box, and common sources of flakiness are gone.',
-    file: 'orders.test.ts',
-    code: ts`
-const fakeOrders = {
-  list: async () => Response.json([]),
-};
-
-const testApp = createInjector({
-  providers: [
-    provideValue(getOrdersApi, fakeOrders),
-  ],
-});
-
-const orders = testApp.get(getOrdersApi);
-expect(await (await orders.list()).json()).toEqual([]);
-`,
-  },
-];
 
 // Placeholder tiles until the real logos are in. Any number works: the grid wraps.
 const platforms = [
@@ -111,25 +35,6 @@ const platforms = [
   'Deno',
   'TypeScript',
   'JavaScript',
-];
-
-const features = [
-  {
-    title: 'Skip the manual wiring',
-    body: 'Dependencies are built automatically when needed, so adding a service doesn’t mean updating a central construction sequence.',
-  },
-  {
-    title: 'Give each feature its own configuration',
-    body: 'Customize a search page or another part of your app while keeping shared defaults everywhere else.',
-  },
-  {
-    title: 'Run different implementations side by side',
-    body: 'Let two parts of the same page use different clients or services without interfering with each other.',
-  },
-  {
-    title: 'See where dependency resolution went wrong',
-    body: 'Get useful context when a dependency can’t be built, making failures easier to track down.',
-  },
 ];
 ---
 
@@ -166,26 +71,38 @@ const features = [
     <p class="lede">You could use some help.</p>
 
     <ul class="cases">
-      {cases.map((c) => (
-        <li class="case">
-          <div class="case-illustration" aria-hidden="true">
-            <svg
-              viewBox="0 0 72 72"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d={c.icon} />
-            </svg>
-          </div>
-          <div class="case-copy">
-            <h3>{c.title}</h3>
-            <p>{c.body}</p>
-          </div>
-        </li>
-      ))}
+      <Case>
+        <Fragment slot="title">Test without mocking imports</Fragment>
+        <Flask slot="illustration" />
+        <p>
+          Give each test its own fake dependencies, without rewriting imports or changing your
+          application code.
+        </p>
+      </Case>
+      <Case>
+        <Fragment slot="title">Configure your app in one place</Fragment>
+        <Sliders slot="illustration" />
+        <p>
+          Provide configuration for components and services without passing it through everything in
+          between.
+        </p>
+      </Case>
+      <Case>
+        <Fragment slot="title">Change implementations without changing callers</Fragment>
+        <Swap slot="illustration" />
+        <p>
+          Switch between real and fake APIs, browser and server clients, or different providers
+          without updating the code that uses them.
+        </p>
+      </Case>
+      <Case>
+        <Fragment slot="title">Share services without global state</Fragment>
+        <Sharing slot="illustration" />
+        <p>
+          Reuse the same client across your app, while giving each test or feature its own instance
+          when needed.
+        </p>
+      </Case>
     </ul>
     <p class="more">
       <a href={why}>Why imports, props, and context get awkward</a>
@@ -199,23 +116,81 @@ const features = [
       don’t have to construct them yourself or keep the wiring in order.
     </p>
     <ol class="steps">
-      {steps.map((step, i) => (
-        <li class="step">
-          <div class="step-copy">
-            <h3>
-              <span class="num">{i + 1}</span> {step.title}
-            </h3>
-            <p set:html={inlineCode(step.body)} />
-          </div>
-          <CodePanel
-            file={step.file}
-            code={step.code}
-            lang="ts"
-            hue="var(--how)"
-            dim="var(--how-dim)"
-          />
-        </li>
-      ))}
+      <Step number={1}>
+        <Fragment slot="title">Ask for configuration</Fragment>
+        <p>
+          Define a default configuration. Your service asks for it with <code>inject()</code>.
+        </p>
+        <CodePanel
+          slot="code"
+          file="orders.ts"
+          lang="ts"
+          hue="var(--how)"
+          dim="var(--how-dim)"
+          code={ts`
+export const getConfig = () => ({
+  apiUrl: '/api',
+});
+
+export function getOrdersApi(
+  config = inject(getConfig)
+) {
+  return {
+    list: () => fetch(config.apiUrl + '/orders'),
+  };
+}
+`}
+        />
+      </Step>
+      <Step number={2}>
+        <Fragment slot="title">Customize it for your app</Fragment>
+        <p>
+          Supply your configuration at startup. Hypospray builds the orders API using that value.
+        </p>
+        <CodePanel
+          slot="code"
+          file="main.ts"
+          lang="ts"
+          hue="var(--how)"
+          dim="var(--how-dim)"
+          code={ts`
+const app = createInjector({
+  providers: [
+    provideValue(getConfig, {
+      apiUrl: 'https://example.com/api',
+    }),
+  ],
+});
+
+const orders = app.get(getOrdersApi);
+`}
+        />
+      </Step>
+      <Step number={3}>
+        <Fragment slot="title">Mock the API in a test</Fragment>
+        <p>Your code is testable out of the box, and common sources of flakiness are gone.</p>
+        <CodePanel
+          slot="code"
+          file="orders.test.ts"
+          lang="ts"
+          hue="var(--how)"
+          dim="var(--how-dim)"
+          code={ts`
+const fakeOrders = {
+  list: async () => Response.json([]),
+};
+
+const testApp = createInjector({
+  providers: [
+    provideValue(getOrdersApi, fakeOrders),
+  ],
+});
+
+const orders = testApp.get(getOrdersApi);
+expect(await (await orders.list()).json()).toEqual([]);
+`}
+        />
+      </Step>
     </ol>
   </Section>
 
@@ -232,12 +207,33 @@ const features = [
     </p>
 
     <div class="features">
-      {features.map((f) => (
-        <div>
-          <h3>{f.title}</h3>
-          <p set:html={inlineCode(f.body)} />
-        </div>
-      ))}
+      <Feature>
+        <Fragment slot="title">Skip the manual wiring</Fragment>
+        <p>
+          Dependencies are built automatically when needed, so adding a service doesn’t mean wiring
+          it up by hand.
+        </p>
+      </Feature>
+      <Feature>
+        <Fragment slot="title">Give each feature its own configuration</Fragment>
+        <p>
+          Customize a search page or another part of your app while keeping shared defaults
+          everywhere else.
+        </p>
+      </Feature>
+      <Feature>
+        <Fragment slot="title">Run different implementations side by side</Fragment>
+        <p>
+          Let two parts of the same page use different clients or services without interfering with
+          each other.
+        </p>
+      </Feature>
+      <Feature>
+        <Fragment slot="title">See where dependency resolution went wrong</Fragment>
+        <p>
+          Get useful context when a dependency can’t be built, making failures easier to track down.
+        </p>
+      </Feature>
     </div>
 
     <div class="cta">
@@ -309,7 +305,6 @@ const features = [
 
   h1,
   h2,
-  h3,
   .cta-title {
     margin: 0;
     font-family: var(--font-display);
@@ -330,12 +325,6 @@ const features = [
     font-size: 44px;
     line-height: 1.05;
     margin-bottom: 20px;
-  }
-
-  h3 {
-    font-size: 24px;
-    line-height: 1.2;
-    margin-bottom: 8px;
   }
 
   .lede {
@@ -391,37 +380,6 @@ const features = [
     list-style: none;
   }
 
-  .case {
-    min-width: 0;
-  }
-
-  .case-illustration {
-    display: flex;
-    align-items: center;
-    height: 112px;
-    margin-bottom: 20px;
-    color: var(--text-muted);
-  }
-
-  .case-illustration svg {
-    width: 88px;
-    height: 88px;
-  }
-
-  .case h3 {
-    color: var(--hue);
-  }
-
-  .case p {
-    margin: 0;
-  }
-
-  .num {
-    display: inline-block;
-    min-width: 1.4em;
-    color: var(--text-muted);
-  }
-
   .more {
     margin: 56px 0 0;
   }
@@ -439,23 +397,6 @@ const features = [
     margin: 0;
     padding: 0;
     list-style: none;
-  }
-
-  .step {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-    gap: 32px;
-    align-items: start;
-  }
-
-  .step-copy p {
-    max-width: 38ch;
-    margin: 0;
-  }
-
-  .step h3,
-  .features h3 {
-    color: var(--hue);
   }
 
   .platforms {
@@ -487,10 +428,6 @@ const features = [
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 32px;
-  }
-
-  .features p {
-    margin: 0;
   }
 
   .cta {
@@ -529,27 +466,12 @@ const features = [
   }
 
   @media (width < 1050px) {
-    .cases,
-    .step {
+    .cases {
       grid-template-columns: minmax(0, 1fr);
-    }
-
-    .case {
-      display: grid;
-      grid-template-columns: 160px minmax(0, 1fr);
-      gap: 24px;
-    }
-
-    .case-illustration {
-      margin-bottom: 0;
     }
   }
 
   @media (width < 600px) {
-    .case {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
     h1 {
       font-size: 44px;
     }
